@@ -5,11 +5,6 @@ use Q.A.f as g
 
 type alias Static = Internal.IO
 
-enum Point {
-    case P2D(Int32, Int32)
-    case P3D(Int32, Int32, Int32)
-}
-
 enum List[t] {
     case Nil
     case Cons(t, List[t])
@@ -20,11 +15,12 @@ mod List {
     use ToString.toString
     use Category.Functor
 
-    type alias F = Q.A.T[String]
+    type alias F[t, q] = Q.A.T[String, t[q]]
 
 }
 
 mod Q {
+    mod Q2.Q3 {}
     mod A {
 
         type alias T = String
