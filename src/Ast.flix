@@ -192,15 +192,49 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub def mkScope(uses: List[Use], modules: List[Module], aliases: List[TypeAlias]): Scope =
-        Scope.Scope({uses = uses, modules = modules, aliases = aliases})
+    pub def mkEnum(name: LocString, cases: List[(LocString, List[Name])]): Enum =
+        Enum.Enum({name = name, cases = cases})
 
-    pub enum Scope({uses = List[Use], modules = List[Module], aliases = List[TypeAlias]})
+    pub enum Enum({name = LocString, cases = List[(LocString, List[Name])]})
+
+    instance Coerce[Enum] {
+        type Out = {name = LocString, cases = List[(LocString, List[Name])]}
+
+        pub def coerce(x: Enum): {name = LocString, cases = List[(LocString, List[Name])]} = {
+            let Enum.Enum(r) = x;
+            r
+        }
+    }
+
+    pub def mkScope(
+        uses: List[Use],
+        modules: List[Module],
+        aliases: List[TypeAlias],
+        enums: List[Enum]
+    ): Scope =
+        Scope.Scope({uses = uses, modules = modules, aliases = aliases, enums = enums})
+
+    pub enum Scope({
+        uses = List[Use],
+        modules = List[Module],
+        aliases = List[TypeAlias],
+        enums = List[Enum]
+    })
 
     instance Coerce[Scope] {
-        type Out = {uses = List[Use], modules = List[Module], aliases = List[TypeAlias]}
+        type Out = {
+            uses = List[Use],
+            modules = List[Module],
+            aliases = List[TypeAlias],
+            enums = List[Enum]
+        }
 
-        pub def coerce(x: Scope): {uses = List[Use], modules = List[Module], aliases = List[TypeAlias]} = {
+        pub def coerce(x: Scope): {
+            uses = List[Use],
+            modules = List[Module],
+            aliases = List[TypeAlias],
+            enums = List[Enum]
+        } = {
             let Scope.Scope(r) = x;
             r
         }

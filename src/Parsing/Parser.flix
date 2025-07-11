@@ -32,6 +32,7 @@ mod ScopeGraph.Parser {
         let uses = MutList.empty(rc);
         let modules = MutList.empty(rc);
         let aliases = MutList.empty(rc);
+        let enums = MutList.empty(rc);
         let progress = Ref.fresh(rc, true);
         def loop() = {
             Ref.put(false, progress);
@@ -47,10 +48,19 @@ mod ScopeGraph.Parser {
                 aliases |> MutList.push(ta);
                 Ref.put(true, progress)
             });
+            sc !> parseWsAny |> parseEnum |> forEach(e -> {
+                enums |> MutList.push(e);
+                Ref.put(true, progress)
+            });
             if (Ref.get(progress)) loop() else ()
         };
         loop();
-        Ast.mkScope(uses |> MutList.toList, modules |> MutList.toList, aliases |> MutList.toList)
+        Ast.mkScope(
+            uses |> MutList.toList,
+            modules |> MutList.toList,
+            aliases |> MutList.toList,
+            enums |> MutList.toList
+        )
     }
 
     ///
@@ -76,12 +86,48 @@ mod ScopeGraph.Parser {
     pub def parseTypeAlias(sc: SC[r]): Option[Ast.TypeAlias] \ r + Error = {
         if (sc |> parseKeywordOpt("type")) {
             sc !> parseWsAny |> parseKeyword("alias");
-            let name = sc !> parseWsAny |> parseUpperWord;
+            let name = sc !> parseWsAny |> parseWord;
             sc !> parseWsAny |> parseChar('=');
             sc !> parseWsAny |> parseChar('[');
             let types = sc |> parseCommaSeq(parseName);
             sc !> parseWsAny |> parseChar(']');
             Some(Ast.mkTypeAlias(name, types))
+        } else {
+            None
+        }
+    }
+
+    ///
+    /// If the cursor is at "enum " then parsing will start, otherwise None is returned.
+    ///
+    /// DOES NOT handle prefix whitespace.
+    pub def parseEnum(sc: SC[r]): Option[Ast.Enum] \ r + Error = {
+        if (sc |> parseKeywordOpt("enum")) {
+            let name = sc !> parseWsAny |> parseWord;
+            sc !> parseWsAny |> parseChar('{');
+            let cases = sc |> parseRepeated(parseCase);
+            sc !> parseWsAny |> parseChar('}');
+            Some(Ast.mkEnum(name, cases))
+        } else {
+            None
+        }
+    }
+
+
+    ///
+    /// If the cursor is at "case " then parsing will start, otherwise None is returned.
+    ///
+    /// DOES NOT handle prefix whitespace.
+    def parseCase(sc: SC[r]): Option[(Ast.LocString, List[Ast.Name])] \ r + Error = {
+        if (sc |> parseKeywordOpt("case")) {
+            let name = sc !> parseWsAny |> parseWord;
+            if (sc |> advanceIfMatchChar('(')) {
+                let types = sc |> parseCommaSeq(parseName);
+                sc !> parseWsAny |> parseChar(')');
+                Some((name, types))
+            } else {
+                Some((name, Nil))
+            }
         } else {
             None
         }
@@ -109,14 +155,14 @@ mod ScopeGraph.Parser {
     /// Handles prefix whitespace.
     pub def parseName(sc: SC[r]): Ast.Name \ r + Error = {
         sc |> parseWsAny;
-        def loop(acc) = match sc |> parseUpperWordOpt {
+        def loop(acc) = match sc |> parseWordOpt {
             case Some(n) =>
                 match sc |> parseCharOpt('.') {
                     case true => loop(n :: acc)
                     case false => Ast.mkName(acc |> List.reverse, n)
                 }
             case None =>
-                Ast.mkName(acc |> List.reverse, sc |> parseLowerWord)
+                Ast.mkName(acc |> List.reverse, sc |> parseWord)
         };
         loop(Nil)
     }
@@ -132,6 +178,20 @@ mod ScopeGraph.Parser {
                 loop(x :: acc)
             } else {
                 acc |> List.reverse
+            }
+        };
+        loop(Nil)
+    }
+
+    ///
+    /// `f` does not need to handle prefix whitespace.
+    ///
+    /// Handles prefix whitespace.
+    def parseRepeated(f: SC[r] -> Option[t] \ ef, sc: SC[r]): List[t] \ ef + r = {
+        def loop(acc) = {
+            match sc !> parseWsAny |> f {
+                case Some(v) => loop(v :: acc)
+                case None => acc |> List.reverse
             }
         };
         loop(Nil)
@@ -158,41 +218,15 @@ mod ScopeGraph.Parser {
     }
 
     /// DOES NOT handle prefix whitespace.
-    def parseUpperWordOpt(sc: SC[r]): Option[Ast.LocString] \ r = {
+    def parseWordOpt(sc: SC[r]): Option[Ast.LocString] \ r = {
         let start = sc |> getLoc;
         let head = sc |> peek;
-        if (Char.isLetter(head) and Char.isUpperCase(head)) {
+        if (Char.isLetter(head)) {
             let s = sc |> advanceWhileAndCollect(c -> Char.isLetter(c) or Char.isDigit(c));
             let end = sc |> getLoc;
             Some(mkLocString(s, start = start, end))
         } else {
             None
-        }
-    }
-
-    /// DOES NOT handle prefix whitespace.
-    def parseUpperWord(sc: SC[r]): Ast.LocString \ r + Error = {
-        let start = sc |> getLoc;
-        let head = sc |> peek;
-        if (Char.isLetter(head) and Char.isUpperCase(head)) {
-            let s = sc |> advanceWhileAndCollect(c -> Char.isLetter(c) or Char.isDigit(c));
-            let end = sc |> getLoc;
-            mkLocString(s, start = start, end)
-        } else {
-            sc |> errExpect("letter")
-        }
-    }
-
-    /// DOES NOT handle prefix whitespace.
-    def parseLowerWord(sc: SC[r]): Ast.LocString \ r + Error = {
-        let start = sc |> getLoc;
-        let head = sc |> peek;
-        if (Char.isLetter(head) and Char.isLowerCase(head)) {
-            let s = sc |> advanceWhileAndCollect(c -> Char.isLetter(c) or Char.isDigit(c));
-            let end = sc |> getLoc;
-            mkLocString(s, start = start, end)
-        } else {
-            sc |> errExpect("letter")
         }
     }
 

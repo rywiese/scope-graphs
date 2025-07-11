@@ -5,6 +5,16 @@ use Q.A.f as g
 
 type alias Static = [Internal.IO]
 
+enum Point {
+    case P2D(Int32, Int32)
+    case P3D(Int32, Int32, Int32)
+}
+
+enum List {
+    case Nil
+    case Cons(List)
+}
+
 mod List {
     use Eq.eq
     use ToString.toString
