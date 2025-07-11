@@ -88,9 +88,9 @@ mod ScopeGraph.Parser {
             sc !> parseWsAny |> parseKeyword("alias");
             let name = sc !> parseWsAny |> parseWord;
             sc !> parseWsAny |> parseChar('=');
-            sc !> parseWsAny |> parseChar('[');
+            sc !> parseWsAny |> parseChar('<');
             let types = sc |> parseCommaSeq(parseName);
-            sc !> parseWsAny |> parseChar(']');
+            sc !> parseWsAny |> parseChar('>');
             Some(Ast.mkTypeAlias(name, types))
         } else {
             None

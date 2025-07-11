@@ -3,7 +3,7 @@ use List.Hat.q
 use List as LList
 use Q.A.f as g
 
-type alias Static = [Internal.IO]
+type alias Static = <Internal.IO>
 
 enum Point {
     case P2D(Int32, Int32)
@@ -20,13 +20,13 @@ mod List {
     use ToString.toString
     use Category.Functor
 
-    type alias F = [Q.A.T, String]
+    type alias F = <Q.A.T, String>
 
 }
 
 mod Q {
     mod A {
 
-        type alias T = [String]
+        type alias T = <String>
     }
 }
