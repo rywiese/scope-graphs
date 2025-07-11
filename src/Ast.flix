@@ -178,20 +178,33 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub def mkScope(uses: List[Use], modules: List[Module]): Scope =
-        Scope.Scope({uses = uses, modules = modules})
+    pub def mkTypeAlias(name: LocString, types: List[Name]): TypeAlias =
+        TypeAlias.TypeAlias({name = name, types = types})
 
-    pub enum Scope({uses = List[Use], modules = List[Module]})
+    pub enum TypeAlias({name = LocString, types = List[Name]})
 
-    instance Coerce[Scope] {
-        type Out = {uses = List[Use], modules = List[Module]}
+    instance Coerce[TypeAlias] {
+        type Out = {name = LocString, types = List[Name]}
 
-        pub def coerce(x: Scope): {uses = List[Use], modules = List[Module]} = {
-            let Scope.Scope(r) = x;
+        pub def coerce(x: TypeAlias): {name = LocString, types = List[Name]} = {
+            let TypeAlias.TypeAlias(r) = x;
             r
         }
     }
 
+    pub def mkScope(uses: List[Use], modules: List[Module], aliases: List[TypeAlias]): Scope =
+        Scope.Scope({uses = uses, modules = modules, aliases = aliases})
+
+    pub enum Scope({uses = List[Use], modules = List[Module], aliases = List[TypeAlias]})
+
+    instance Coerce[Scope] {
+        type Out = {uses = List[Use], modules = List[Module], aliases = List[TypeAlias]}
+
+        pub def coerce(x: Scope): {uses = List[Use], modules = List[Module], aliases = List[TypeAlias]} = {
+            let Scope.Scope(r) = x;
+            r
+        }
+    }
 
     pub def mkModule(name: Name, scope: Scope): Module =
         Module.Module({name = name, scope = scope})

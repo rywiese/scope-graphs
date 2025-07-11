@@ -1,4 +1,5 @@
 mod ScopeGraph.Parser {
+    use Foldable.forEach
     use ScopeGraph.Parsing.{StringCursor => SC}
     use ScopeGraph.Ast
     use ScopeGraph.Parsing.StringCursor.advanceIfMatchChar
@@ -27,21 +28,29 @@ mod ScopeGraph.Parser {
         }
     }
 
-    pub def parseScope(sc: SC[r]): Ast.Scope \ r + Error = {
-        def loop(uses, modules) = {
-            sc |> parseWsAny;
-            match sc |> parseModule {
-                case Some(module) =>
-                    loop(uses, module :: modules)
-                case None => match sc |> parseUse {
-                    case Some(usage) =>
-                        loop(usage :: uses, modules)
-                    case None =>
-                        Ast.mkScope(uses |> List.reverse, modules |> List.reverse)
-                }
-            }
+    pub def parseScope(sc: SC[r]): Ast.Scope \ r + Error = region rc {
+        let uses = MutList.empty(rc);
+        let modules = MutList.empty(rc);
+        let aliases = MutList.empty(rc);
+        let progress = Ref.fresh(rc, true);
+        def loop() = {
+            Ref.put(false, progress);
+            sc !> parseWsAny |> parseModule |> forEach(m -> {
+                modules |> MutList.push(m);
+                Ref.put(true, progress)
+            });
+            sc !> parseWsAny |> parseUse |> forEach(u -> {
+                uses |> MutList.push(u);
+                Ref.put(true, progress)
+            });
+            sc !> parseWsAny |> parseTypeAlias |> forEach(ta -> {
+                aliases |> MutList.push(ta);
+                Ref.put(true, progress)
+            });
+            if (Ref.get(progress)) loop() else ()
         };
-        loop(Nil, Nil)
+        loop();
+        Ast.mkScope(uses |> MutList.toList, modules |> MutList.toList, aliases |> MutList.toList)
     }
 
     ///
@@ -55,6 +64,24 @@ mod ScopeGraph.Parser {
             let scope = sc |> parseScope;
             sc !> parseWsAny |> parseChar('}');
             Some(Ast.mkModule(name, scope))
+        } else {
+            None
+        }
+    }
+
+    ///
+    /// If the cursor is at "type " then parsing will start, otherwise None is returned.
+    ///
+    /// DOES NOT handle prefix whitespace.
+    pub def parseTypeAlias(sc: SC[r]): Option[Ast.TypeAlias] \ r + Error = {
+        if (sc |> parseKeywordOpt("type")) {
+            sc !> parseWsAny |> parseKeyword("alias");
+            let name = sc !> parseWsAny |> parseUpperWord;
+            sc !> parseWsAny |> parseChar('=');
+            sc !> parseWsAny |> parseChar('[');
+            let types = sc |> parseCommaSeq(parseName);
+            sc !> parseWsAny |> parseChar(']');
+            Some(Ast.mkTypeAlias(name, types))
         } else {
             None
         }
@@ -94,6 +121,22 @@ mod ScopeGraph.Parser {
         loop(Nil)
     }
 
+    ///
+    /// `f` does not need to handle prefix whitespace.
+    ///
+    /// Handles prefix whitespace.
+    def parseCommaSeq(f: SC[r] -> t \ ef, sc: SC[r]): List[t] \ ef + r = {
+        def loop(acc) = {
+            let x = sc !> parseWsAny |> f;
+            if (sc !> parseWsAny |> advanceIfMatchChar(',')) {
+                loop(x :: acc)
+            } else {
+                acc |> List.reverse
+            }
+        };
+        loop(Nil)
+    }
+
     /// DOES NOT handle prefix whitespace.
     def parseKeywordOpt(kw: String, sc: SC[r]): Bool \ r = {
         let delimited = sc |> nthIsP(String.length(kw), c -> not (Char.isLetter(c) or Char.isDigit(c)), true);
@@ -101,6 +144,16 @@ mod ScopeGraph.Parser {
             true
         } else {
             false
+        }
+    }
+
+    /// DOES NOT handle prefix whitespace.
+    def parseKeyword(kw: String, sc: SC[r]): Unit \ r + Error = {
+        let delimited = sc |> nthIsP(String.length(kw), c -> not (Char.isLetter(c) or Char.isDigit(c)), true);
+        if (delimited and sc |> advanceIfMatchString(kw)) {
+            ()
+        } else {
+            sc |> errExpect("'${kw}'")
         }
     }
 
@@ -114,6 +167,19 @@ mod ScopeGraph.Parser {
             Some(mkLocString(s, start = start, end))
         } else {
             None
+        }
+    }
+
+    /// DOES NOT handle prefix whitespace.
+    def parseUpperWord(sc: SC[r]): Ast.LocString \ r + Error = {
+        let start = sc |> getLoc;
+        let head = sc |> peek;
+        if (Char.isLetter(head) and Char.isUpperCase(head)) {
+            let s = sc |> advanceWhileAndCollect(c -> Char.isLetter(c) or Char.isDigit(c));
+            let end = sc |> getLoc;
+            mkLocString(s, start = start, end)
+        } else {
+            sc |> errExpect("letter")
         }
     }
 
@@ -172,7 +238,7 @@ mod ScopeGraph.Parser {
         err("Expected '${expected}', found '${sc |> peek}'", sc)
 
     def err(msg: String, sc: SC[r]): t \ r + Error = {
-        let loc = "${sc |> getLine}:${sc |> getColumn}";
+        let loc = "${sc |> getLine + 1}:${sc |> getColumn + 1}";
         Error.error("${msg} (${loc})")
     }
 }
