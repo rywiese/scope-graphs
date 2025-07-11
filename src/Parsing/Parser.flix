@@ -33,6 +33,7 @@ mod ScopeGraph.Parser {
         let modules = MutList.empty(rc);
         let aliases = MutList.empty(rc);
         let enums = MutList.empty(rc);
+        let defs = MutList.empty(rc);
         let progress = Ref.fresh(rc, true);
         def loop() = {
             Ref.put(false, progress);
@@ -53,6 +54,10 @@ mod ScopeGraph.Parser {
                 enums |> MutList.push(e);
                 Ref.put(true, progress)
             });
+            sc !> parseWsAny |> parseDef(ac) |> forEach(d -> {
+                defs |> MutList.push(d);
+                Ref.put(true, progress)
+            });
             if (Ref.get(progress)) loop() else ()
         };
         loop();
@@ -60,7 +65,8 @@ mod ScopeGraph.Parser {
             uses |> MutList.toList,
             modules |> MutList.toList,
             aliases |> MutList.toList,
-            enums |> MutList.toList
+            enums |> MutList.toList,
+            defs |> MutList.toList
         )
     }
 
@@ -87,7 +93,7 @@ mod ScopeGraph.Parser {
             let name = sc !> parseWsAny |> parseName;
             sc |> parseChar('{');
             let scope = sc |> parseScope;
-            sc |> parseCharHint('}', List#{"'type'", "'use'", "'enum'", "'pub'"});
+            sc |> parseCharHint('}', List#{"'def'", "'type'", "'use'", "'enum'", "'pub'"});
             Some(Ast.mkModule(ac, name, scope))
         } else {
             None
@@ -168,6 +174,37 @@ mod ScopeGraph.Parser {
         } else {
             base
         }
+    }
+
+    ///
+    /// If the cursor is at "def " then parsing will start, otherwise None is returned.
+    ///
+    /// DOES NOT handle prefix whitespace.
+    def parseDef(ac: Ast.Access, sc: SC[r]): Option[Ast.Def] \ r + Error = {
+        if (sc |> parseKeywordOpt("def")) {
+            let name = sc !> parseWsAny |> parseWord;
+            let args = if (sc |> advanceIfMatchChar('(')) {
+                if (sc !> parseWsAny |> advanceIfMatchChar(')')) {
+                    Nil
+                } else {
+                    let args1 = sc |> parseCommaSeq(parseParam);
+                    sc |> parseCharHint(')', List#{"letter"});
+                    args1
+                }
+            } else Nil;
+            sc |> parseChar(':');
+            let tpe = sc |> parseType;
+            Some(Ast.mkDef(ac, name, args, tpe))
+        } else {
+            None
+        }
+    }
+
+    def parseParam(sc: SC[r]): (Ast.LocString, Ast.Tpe) \ r + Error = {
+        let name = sc !> parseWsAny |> parseWord;
+        sc |> parseChar(':');
+        let tpe = sc |> parseType;
+        (name, tpe)
     }
 
     ///

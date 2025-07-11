@@ -250,19 +250,40 @@ mod ScopeGraph.Ast {
         terms = List[Tpe]
     })
 
+    pub def mkDef(ac: Access, name: LocString, args: List[(LocString, Tpe)], tpe: Tpe): Def =
+        Def.Def({ac = ac, name = name, args = args, tpe = tpe})
+
+    pub enum Def({
+        ac = Access,
+        name = LocString,
+        args = List[(LocString, Tpe)],
+        tpe = Tpe
+    })
+
+    instance Coerce[Def] {
+        type Out = {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe}
+
+        pub def coerce(x: Def): {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe} = {
+            let Def.Def(r) = x;
+            r
+        }
+    }
+
     pub def mkScope(
         uses: List[Use],
         modules: List[Module],
         aliases: List[TypeAlias],
-        enums: List[Enum]
+        enums: List[Enum],
+        defs: List[Def]
     ): Scope =
-        Scope.Scope({uses = uses, modules = modules, aliases = aliases, enums = enums})
+        Scope.Scope({uses = uses, modules = modules, aliases = aliases, enums = enums, defs = defs})
 
     pub enum Scope({
         uses = List[Use],
         modules = List[Module],
         aliases = List[TypeAlias],
-        enums = List[Enum]
+        enums = List[Enum],
+        defs = List[Def]
     })
 
     instance Coerce[Scope] {
@@ -270,14 +291,16 @@ mod ScopeGraph.Ast {
             uses = List[Use],
             modules = List[Module],
             aliases = List[TypeAlias],
-            enums = List[Enum]
+            enums = List[Enum],
+            defs = List[Def]
         }
 
         pub def coerce(x: Scope): {
             uses = List[Use],
             modules = List[Module],
             aliases = List[TypeAlias],
-            enums = List[Enum]
+            enums = List[Enum],
+            defs = List[Def]
         } = {
             let Scope.Scope(r) = x;
             r

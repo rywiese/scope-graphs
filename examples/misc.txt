@@ -15,6 +15,10 @@ pub mod List {
     use ToString.toString
     use Category.Functor
 
+    pub def empty(): List[t]
+
+    def emptyHelper(xs: List[t]): List[t]
+
     pub type alias F[t, q] = Q.A.T[String, t[q]]
 
 }
