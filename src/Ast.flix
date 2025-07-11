@@ -1,10 +1,142 @@
 mod ScopeGraph.Ast {
     use ScopeGraph.Ast.Loc.LocString
 
+    pub def mkScope(
+        uses: List[Use],
+        modules: List[Module],
+        aliases: List[TypeAlias],
+        enums: List[Enum],
+        defs: List[Def]
+    ): Scope =
+        Scope.Scope({
+            uses = uses,
+            modules = modules,
+            aliases = aliases,
+            enums = enums,
+            defs = defs
+        })
+
+    pub enum Scope({
+        uses = List[Use],
+        modules = List[Module],
+        aliases = List[TypeAlias],
+        enums = List[Enum],
+        defs = List[Def]
+    })
+
+    pub def mkUse(ac: Access, name: Name): Use =
+        Use.Use({ac = ac, name = name, renaming = None})
+
+    pub def mkRenamedUse(ac: Access, name: Name, renaming: LocString): Use =
+        Use.Use({ac = ac, name = name, renaming = Some(renaming)})
+
+    pub enum Use({
+        ac = Access,
+        name = Name,
+        renaming = Option[LocString]
+    })
+
+    pub def mkModule(ac: Access, name: Name, scope: Scope): Module =
+        Module.Module({ac = ac, name = name, scope = scope})
+
+    pub enum Module({
+        ac = Access,
+        name = Name,
+        scope = Scope
+    })
+
+    pub def mkTypeAlias(
+        ac: Access,
+        name: LocString,
+        args: List[LocString],
+        tpe: Tpe
+    ): TypeAlias =
+        TypeAlias.TypeAlias({ac = ac, name = name, args = args, tpe = tpe})
+
+    pub enum TypeAlias({
+        ac = Access,
+        name = LocString,
+        args = List[LocString],
+        tpe = Tpe
+    })
+
+    pub def mkEnum(
+        ac: Access,
+        name: LocString,
+        args: List[LocString],
+        cases: List[EnumCase]
+    ): Enum =
+        Enum.Enum({ac = ac, name = name, args = args, cases = cases})
+
+    pub enum Enum({
+        ac = Access,
+        name = LocString,
+        args = List[LocString],
+        cases = List[EnumCase]
+    })
+
+    pub def mkEnumCase(ac: Access, name: LocString, terms: List[Tpe]): EnumCase =
+        EnumCase.EnumCase({ac = ac, name = name, terms = terms})
+
+    pub enum EnumCase({
+        ac = Access,
+        name = LocString,
+        terms = List[Tpe]
+    })
+
+    pub def mkDef(
+        ac: Access,
+        name: LocString,
+        args: List[(LocString, Tpe)],
+        tpe: Tpe,
+        exp: Exp
+    ): Def =
+        Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})
+
+    pub enum Def({
+        ac = Access,
+        name = LocString,
+        args = List[(LocString, Tpe)],
+        tpe = Tpe,
+        exp = Exp
+    })
+
+    pub enum Exp {
+        case Let(LocString, Exp, Exp)
+        case Stmt(Exp, Exp)
+        case App(Exp, List[Exp])
+        case Name(Name)
+    }
+
+    pub enum Access with Eq, ToString {
+        case Public
+        case Private
+    }
+
     pub def mkName(qualifiers: List[LocString], name: LocString): Name =
         Name.Name({qualifiers = qualifiers, name = name})
 
-    pub enum Name({qualifiers = List[LocString],  name = LocString})
+    pub enum Name({
+        qualifiers = List[LocString],
+        name = LocString
+    })
+
+    pub enum Tpe {
+        case Base(Name)
+        case App(Tpe, List[Tpe])
+    }
+
+
+
+
+
+    //
+    // Instances etc.
+    //
+
+
+
+
 
     instance Coerce[Name] {
         type Out = {qualifiers = List[LocString], name = LocString}
@@ -35,19 +167,6 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub enum Access with Eq, ToString {
-        case Public
-        case Private
-    }
-
-    pub def mkUse(ac: Access, name: Name): Use =
-        Use.Use({ac = ac, name = name, renaming = None})
-
-    pub def mkRenamedUse(ac: Access, name: Name, renaming: LocString): Use =
-        Use.Use({ac = ac, name = name, renaming = Some(renaming)})
-
-    pub enum Use({ac = Access, name = Name, renaming = Option[LocString]})
-
     instance Coerce[Use] {
         type Out = {ac = Access, name = Name, renaming = Option[LocString]}
 
@@ -56,16 +175,6 @@ mod ScopeGraph.Ast {
             r
         }
     }
-
-    pub enum Tpe {
-        case Base(Name)
-        case App(Tpe, List[Tpe])
-    }
-
-    pub def mkTypeAlias(ac: Access, name: LocString, args: List[LocString], tpe: Tpe): TypeAlias =
-        TypeAlias.TypeAlias({ac = ac, name = name, args = args, tpe = tpe})
-
-    pub enum TypeAlias({ac = Access, name = LocString, args = List[LocString], tpe = Tpe})
 
     instance Coerce[TypeAlias] {
         type Out = {ac = Access, name = LocString, args = List[LocString], tpe = Tpe}
@@ -80,21 +189,6 @@ mod ScopeGraph.Ast {
             r
         }
     }
-
-    pub def mkEnum(
-        ac: Access,
-        name: LocString,
-        args: List[LocString],
-        cases: List[EnumCase]
-    ): Enum =
-        Enum.Enum({ac = ac, name = name, args = args, cases = cases})
-
-    pub enum Enum({
-        ac = Access,
-        name = LocString,
-        args = List[LocString],
-        cases = List[EnumCase]
-    })
 
     instance Coerce[Enum] {
         type Out = {
@@ -115,15 +209,6 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub def mkEnumCase(ac: Access, name: LocString, terms: List[Tpe]): EnumCase =
-        EnumCase.EnumCase({ac = ac, name = name, terms = terms})
-
-    pub enum EnumCase({
-        ac = Access,
-        name = LocString,
-        terms = List[Tpe]
-    })
-
     instance Coerce[EnumCase] {
         type Out = {ac = Access, name = LocString, terms = List[Tpe]}
 
@@ -133,17 +218,6 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub def mkDef(ac: Access, name: LocString, args: List[(LocString, Tpe)], tpe: Tpe, exp: Exp): Def =
-        Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})
-
-    pub enum Def({
-        ac = Access,
-        name = LocString,
-        args = List[(LocString, Tpe)],
-        tpe = Tpe,
-        exp = Exp
-    })
-
     instance Coerce[Def] {
         type Out = {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe, exp = Exp}
 
@@ -152,30 +226,6 @@ mod ScopeGraph.Ast {
             r
         }
     }
-
-    pub enum Exp {
-        case Let(LocString, Exp, Exp)
-        case Stmt(Exp, Exp)
-        case App(Exp, List[Exp])
-        case Name(Name)
-    }
-
-    pub def mkScope(
-        uses: List[Use],
-        modules: List[Module],
-        aliases: List[TypeAlias],
-        enums: List[Enum],
-        defs: List[Def]
-    ): Scope =
-        Scope.Scope({uses = uses, modules = modules, aliases = aliases, enums = enums, defs = defs})
-
-    pub enum Scope({
-        uses = List[Use],
-        modules = List[Module],
-        aliases = List[TypeAlias],
-        enums = List[Enum],
-        defs = List[Def]
-    })
 
     instance Coerce[Scope] {
         type Out = {
@@ -197,11 +247,6 @@ mod ScopeGraph.Ast {
             r
         }
     }
-
-    pub def mkModule(ac: Access, name: Name, scope: Scope): Module =
-        Module.Module({ac = ac, name = name, scope = scope})
-
-    pub enum Module({ac = Access, name = Name, scope = Scope})
 
     instance Coerce[Module] {
         type Out = {ac = Access, name = Name, scope = Scope}
