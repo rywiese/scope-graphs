@@ -1,32 +1,30 @@
-use List.nth
-use List.Hat.q
-use List as LList
-use Q.A.f as g
-
-pub type alias Static = Internal.IO
-
 pub enum List[t] {
     pub case Nil
     pub case Cons(t, List[t])
 }
 
-pub mod List {
-    pub use Eq.eq
-    use ToString.toString
-    use Category.Functor
+pub type alias IntList = List[Int32]
 
-    pub def empty(): List[t]
-
-    def emptyHelper(xs: List[t]): List[t]
-
-    pub type alias F[t, q] = Q.A.T[String, t[q]]
-
+pub enum Tuple2[a, b] {
+    case Tuple2(a, b)
 }
 
-mod Q {
-    pub mod Q2.Q3 {}
-    mod B.B {}
-    pub mod A {
-        type alias T = String
+type alias TupledList[t] = List[Tuple2[t, t]]
+
+pub mod List {
+    use ToString.toString as baseToString
+    use Network.Http
+
+    pub def empty(): List[t] = {
+        Nil
     }
+
+    pub def toString(l: List[t]): String = {
+        let something = Nil;
+        Http.ping(something);
+        baseToString(something)
+    }
+
+
+
 }

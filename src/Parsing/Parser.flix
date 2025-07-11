@@ -3,7 +3,6 @@ mod ScopeGraph.Parser {
     use Functor.map
     use ScopeGraph.Parsing.{StringCursor => SC}
     use ScopeGraph.Ast
-    use ScopeGraph.Parsing.StringCursor.advanceIfMatchChar
     use ScopeGraph.Parsing.StringCursor.advanceIfMatchString
     use ScopeGraph.Parsing.StringCursor.advanceWhile
     use ScopeGraph.Parsing.StringCursor.advanceWhileAndCollect
@@ -108,7 +107,7 @@ mod ScopeGraph.Parser {
         if (sc |> parseKeywordOpt("type")) {
             sc !> parseWsAny |> parseKeyword("alias");
             let name = sc !> parseWsAny |> parseWord;
-            let args = if (sc |> advanceIfMatchChar('[')) {
+            let args = if (sc |> parseCharOpt('[')) {
                 let args1 = sc |> parseCommaSeq(parseWord);
                 sc |> parseCharHint(']', List#{"letter"});
                 args1
@@ -128,7 +127,7 @@ mod ScopeGraph.Parser {
     def parseEnum(ac: Ast.Access, sc: SC[r]): Option[Ast.Enum] \ r + Error = {
         if (sc |> parseKeywordOpt("enum")) {
             let name = sc !> parseWsAny |> parseWord;
-            let args = if (sc |> advanceIfMatchChar('[')) {
+            let args = if (sc |> parseCharOpt('[')) {
                 let args1 = sc |> parseCommaSeq(parseWord);
                 sc |> parseCharHint(']', List#{"letter"});
                 args1
@@ -152,7 +151,7 @@ mod ScopeGraph.Parser {
         let skipCheck = if (lockedIn) {sc |> parseKeyword("case"); true} else false;
         if (skipCheck or sc |> parseKeywordOpt("case")) {
             let name = sc !> parseWsAny |> parseWord;
-            if (sc |> advanceIfMatchChar('(')) {
+            if (sc |> parseCharOpt('(')) {
                 let types = sc |> parseCommaSeq(parseType);
                 sc |> parseCharHint(')', List#{"letter"});
                 Some(Ast.mkEnumCase(ac, name, types))
@@ -167,7 +166,7 @@ mod ScopeGraph.Parser {
     /// Handles prefix whitespace.
     def parseType(sc: SC[r]): Ast.Tpe \ r + Error = {
         let base = Ast.Tpe.Base(sc !> parseWsAny |> parseName);
-        if (sc |> advanceIfMatchChar('[')) {
+        if (sc |> parseCharOpt('[')) {
             let args = sc |> parseCommaSeq(parseType);
             sc |> parseCharHint(']', List#{"letter"});
             Ast.Tpe.App(base, args)
@@ -183,8 +182,8 @@ mod ScopeGraph.Parser {
     def parseDef(ac: Ast.Access, sc: SC[r]): Option[Ast.Def] \ r + Error = {
         if (sc |> parseKeywordOpt("def")) {
             let name = sc !> parseWsAny |> parseWord;
-            let args = if (sc |> advanceIfMatchChar('(')) {
-                if (sc !> parseWsAny |> advanceIfMatchChar(')')) {
+            let args = if (sc |> parseCharOpt('(')) {
+                if (sc !> parseWsAny |> parseCharOpt(')')) {
                     Nil
                 } else {
                     let args1 = sc |> parseCommaSeq(parseParam);
@@ -194,17 +193,55 @@ mod ScopeGraph.Parser {
             } else Nil;
             sc |> parseChar(':');
             let tpe = sc |> parseType;
-            Some(Ast.mkDef(ac, name, args, tpe))
+            sc !> parseWsAny |> parseChar('=');
+            sc !> parseWsAny |> parseChar('{');
+            let exp = sc |> parseExp;
+            sc !> parseWsAny |> parseChar('}');
+            Some(Ast.mkDef(ac, name, args, tpe, exp))
         } else {
             None
         }
     }
 
+    /// Handles prefix whitespace.
     def parseParam(sc: SC[r]): (Ast.LocString, Ast.Tpe) \ r + Error = {
         let name = sc !> parseWsAny |> parseWord;
         sc |> parseChar(':');
         let tpe = sc |> parseType;
         (name, tpe)
+    }
+
+    /// Handles prefix whitespace.
+    def parseExpSimple(sc: SC[r]): Ast.Exp \ r + Error = {
+        if (sc !> parseWsAny |> parseKeywordOpt("let")) {
+            let name = sc !> parseWsAny |> parseWord;
+            sc !> parseWsAny |> parseChar('=');
+            let binding = sc |> parseExp;
+            sc !> parseWsAny |> parseChar(';');
+            let body = sc |> parseExp;
+            Ast.Exp.Let(name, binding, body)
+        } else {
+            let name = sc !> parseWsAny |> parseName;
+            Ast.Exp.Name(name)
+        }
+    }
+
+    /// Handles prefix whitespace.
+    def parseExp(sc: SC[r]): Ast.Exp \ r + Error = {
+        let exp = sc |> parseExpSimple;
+        if (sc |> parseCharOpt('(')) {
+            if (sc !> parseWsAny |> parseCharOpt(')')) {
+                Ast.Exp.App(exp, Nil)
+            } else {
+                let args = sc |> parseCommaSeq(parseExp);
+                sc !> parseWsAny |> parseChar(')');
+                Ast.Exp.App(exp, args)
+            }
+        } else if (sc !> parseWsAny |> parseCharOpt(';')) {
+            Ast.Exp.Stmt(exp, sc |> parseExp)
+        } else {
+            exp
+        }
     }
 
     ///
@@ -248,7 +285,7 @@ mod ScopeGraph.Parser {
     def parseCommaSeq(f: SC[r] -> t \ ef, sc: SC[r]): List[t] \ ef + r = {
         def loop(acc) = {
             let x = sc !> parseWsAny |> f;
-            if (sc !> parseWsAny |> advanceIfMatchChar(',')) {
+            if (sc !> parseWsAny |> parseCharOpt(',')) {
                 loop(x :: acc)
             } else {
                 acc |> List.reverse
@@ -322,7 +359,7 @@ mod ScopeGraph.Parser {
 
     /// Handles prefix whitespace.
     def parseChar(c: Char, sc: SC[r]): Unit \ r + Error = {
-        if (sc !> parseWsAny |> advanceIfMatchChar(c)) {
+        if (sc !> parseWsAny |> parseCharOpt(c)) {
             ()
         } else {
             sc |> errExpectChar(c)
@@ -331,7 +368,7 @@ mod ScopeGraph.Parser {
 
     /// Handles prefix whitespace.
     def parseCharHint(c: Char, hints: List[String], sc: SC[r]): Unit \ r + Error = {
-        if (sc !> parseWsAny |> advanceIfMatchChar(c)) {
+        if (sc !> parseWsAny |> parseCharOpt(c)) {
             ()
         } else {
             sc |> err("Found '${peekToString(sc)}', expected ${hints |> List.join(", ")}, or '${c}'")
@@ -340,7 +377,7 @@ mod ScopeGraph.Parser {
 
     /// DOES NOT handle prefix whitespace.
     def parseCharOpt(c: Char, sc: SC[r]): Bool \ r =
-        sc |> advanceIfMatchChar(c)
+        sc |> SC.advanceIfMatchChar(c)
 
     def getLoc(sc: SC[r]): Ast.Loc \ r =
         Ast.mkLoc(line = getLine(sc) + 1, column = getColumn(sc) + 1, getOffset(sc))

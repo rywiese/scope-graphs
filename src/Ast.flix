@@ -250,23 +250,31 @@ mod ScopeGraph.Ast {
         terms = List[Tpe]
     })
 
-    pub def mkDef(ac: Access, name: LocString, args: List[(LocString, Tpe)], tpe: Tpe): Def =
-        Def.Def({ac = ac, name = name, args = args, tpe = tpe})
+    pub def mkDef(ac: Access, name: LocString, args: List[(LocString, Tpe)], tpe: Tpe, exp: Exp): Def =
+        Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})
 
     pub enum Def({
         ac = Access,
         name = LocString,
         args = List[(LocString, Tpe)],
-        tpe = Tpe
+        tpe = Tpe,
+        exp = Exp
     })
 
     instance Coerce[Def] {
-        type Out = {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe}
+        type Out = {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe, exp = Exp}
 
-        pub def coerce(x: Def): {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe} = {
+        pub def coerce(x: Def): {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe, exp = Exp} = {
             let Def.Def(r) = x;
             r
         }
+    }
+
+    pub enum Exp {
+        case Let(LocString, Exp, Exp)
+        case Stmt(Exp, Exp)
+        case App(Exp, List[Exp])
+        case Name(Name)
     }
 
     pub def mkScope(
@@ -327,6 +335,5 @@ mod ScopeGraph.Ast {
         pub def getName(m: Module): Name =
             coerce(m)#name
     }
-
 
 }
