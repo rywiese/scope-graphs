@@ -10,9 +10,9 @@ enum Point {
     case P3D(Int32, Int32, Int32)
 }
 
-enum List {
+enum List[t] {
     case Nil
-    case Cons(List)
+    case Cons(t, List)
 }
 
 mod List {

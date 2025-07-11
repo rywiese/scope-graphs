@@ -87,11 +87,16 @@ mod ScopeGraph.Parser {
         if (sc |> parseKeywordOpt("type")) {
             sc !> parseWsAny |> parseKeyword("alias");
             let name = sc !> parseWsAny |> parseWord;
+            let args = if (sc |> advanceIfMatchChar('[')) {
+                let args1 = sc |> parseCommaSeq(parseWord);
+                sc |> parseChar(']');
+                args1
+            } else Nil;
             sc !> parseWsAny |> parseChar('=');
             sc !> parseWsAny |> parseChar('<');
             let types = sc |> parseCommaSeq(parseName);
             sc !> parseWsAny |> parseChar('>');
-            Some(Ast.mkTypeAlias(name, types))
+            Some(Ast.mkTypeAlias(name, args, types))
         } else {
             None
         }
@@ -104,10 +109,15 @@ mod ScopeGraph.Parser {
     pub def parseEnum(sc: SC[r]): Option[Ast.Enum] \ r + Error = {
         if (sc |> parseKeywordOpt("enum")) {
             let name = sc !> parseWsAny |> parseWord;
+            let args = if (sc |> advanceIfMatchChar('[')) {
+                let args1 = sc |> parseCommaSeq(parseWord);
+                sc |> parseChar(']');
+                args1
+            } else Nil;
             sc !> parseWsAny |> parseChar('{');
             let cases = sc |> parseRepeated(parseCase);
             sc !> parseWsAny |> parseChar('}');
-            Some(Ast.mkEnum(name, cases))
+            Some(Ast.mkEnum(name, args, cases))
         } else {
             None
         }

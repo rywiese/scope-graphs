@@ -178,29 +178,29 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub def mkTypeAlias(name: LocString, types: List[Name]): TypeAlias =
-        TypeAlias.TypeAlias({name = name, types = types})
+    pub def mkTypeAlias(name: LocString, args: List[LocString], types: List[Name]): TypeAlias =
+        TypeAlias.TypeAlias({name = name, args = args, types = types})
 
-    pub enum TypeAlias({name = LocString, types = List[Name]})
+    pub enum TypeAlias({name = LocString, args = List[LocString], types = List[Name]})
 
     instance Coerce[TypeAlias] {
-        type Out = {name = LocString, types = List[Name]}
+        type Out = {name = LocString, args = List[LocString], types = List[Name]}
 
-        pub def coerce(x: TypeAlias): {name = LocString, types = List[Name]} = {
+        pub def coerce(x: TypeAlias): {name = LocString, args = List[LocString], types = List[Name]} = {
             let TypeAlias.TypeAlias(r) = x;
             r
         }
     }
 
-    pub def mkEnum(name: LocString, cases: List[(LocString, List[Name])]): Enum =
-        Enum.Enum({name = name, cases = cases})
+    pub def mkEnum(name: LocString, args: List[LocString], cases: List[(LocString, List[Name])]): Enum =
+        Enum.Enum({name = name, args = args, cases = cases})
 
-    pub enum Enum({name = LocString, cases = List[(LocString, List[Name])]})
+    pub enum Enum({name = LocString, args = List[LocString], cases = List[(LocString, List[Name])]})
 
     instance Coerce[Enum] {
-        type Out = {name = LocString, cases = List[(LocString, List[Name])]}
+        type Out = {name = LocString, args = List[LocString], cases = List[(LocString, List[Name])]}
 
-        pub def coerce(x: Enum): {name = LocString, cases = List[(LocString, List[Name])]} = {
+        pub def coerce(x: Enum): {name = LocString, args = List[LocString], cases = List[(LocString, List[Name])]} = {
             let Enum.Enum(r) = x;
             r
         }
