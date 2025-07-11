@@ -7,7 +7,7 @@ mod ScopeGraph.Parsing.File {
     pub def parseFile(path: String): Ast.Scope \ Parser.Error + FileRead = region rc {
         let input = FileRead.read(path);
         let sc = StringCursor.mk(rc, input);
-        Parser.parseScope(sc)
+        Parser.parseProgram(sc)
     }
 
     pub def parseFileUnsafe(path: String): Ast.Scope \ IO =

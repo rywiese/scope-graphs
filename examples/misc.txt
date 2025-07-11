@@ -3,25 +3,26 @@ use List.Hat.q
 use List as LList
 use Q.A.f as g
 
-type alias Static = Internal.IO
+pub type alias Static = Internal.IO
 
-enum List[t] {
-    case Nil
-    case Cons(t, List[t])
+pub enum List[t] {
+    pub case Nil
+    pub case Cons(t, List[t])
 }
 
-mod List {
-    use Eq.eq
+pub mod List {
+    pub use Eq.eq
     use ToString.toString
     use Category.Functor
 
-    type alias F[t, q] = Q.A.T[String, t[q]]
+    pub type alias F[t, q] = Q.A.T[String, t[q]]
 
 }
 
 mod Q {
-    mod Q2.Q3 {}
-    mod A {
+    pub mod Q2.Q3 {}
+    mod B.B {}
+    pub mod A {
 
         type alias T = String
     }

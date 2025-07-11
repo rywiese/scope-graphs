@@ -5,13 +5,6 @@ mod ScopeGraph.Test.Parser {
     use ScopeGraph.Ast
 
     @Test
-    pub def qName01(): Bool \ IO = run region rc {
-        let input = "  John.Travolta.height";
-        let name = mk(rc, input) |> Parser.parseName;
-        Ast.Name.getSimple(name) == (List#{"John", "Travolta"}, "height")
-    } with handleError
-
-    @Test
     pub def module01(): Bool \ IO = run region rc {
         let input = "  mod Test.Me { }";
         mk(rc, input) |> Parser.parseProgram;

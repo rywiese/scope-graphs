@@ -1,4 +1,5 @@
 # scope-graphs
 
-Enter some useful information.
 
+## Known Issues (Will not fix)
+A trailing `pub` is ignored

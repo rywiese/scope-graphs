@@ -17,7 +17,6 @@ mod ScopeGraph.Parser {
         def error(msg: String): Void
     }
 
-    /// Like parseScope but also errors for unconsumed input.
     pub def parseProgram(sc: SC[r]): Ast.Scope \ r + Error = {
         let scope = sc |> parseScope;
         sc |> parseWsAny;
@@ -28,7 +27,7 @@ mod ScopeGraph.Parser {
         }
     }
 
-    pub def parseScope(sc: SC[r]): Ast.Scope \ r + Error = region rc {
+    def parseScope(sc: SC[r]): Ast.Scope \ r + Error = region rc {
         let uses = MutList.empty(rc);
         let modules = MutList.empty(rc);
         let aliases = MutList.empty(rc);
@@ -36,19 +35,20 @@ mod ScopeGraph.Parser {
         let progress = Ref.fresh(rc, true);
         def loop() = {
             Ref.put(false, progress);
-            sc !> parseWsAny |> parseModule |> forEach(m -> {
+            let ac = sc |> parseAccess;
+            sc !> parseWsAny |> parseModule(ac) |> forEach(m -> {
                 modules |> MutList.push(m);
                 Ref.put(true, progress)
             });
-            sc !> parseWsAny |> parseUse |> forEach(u -> {
+            sc !> parseWsAny |> parseUse(ac) |> forEach(u -> {
                 uses |> MutList.push(u);
                 Ref.put(true, progress)
             });
-            sc !> parseWsAny |> parseTypeAlias |> forEach(ta -> {
+            sc !> parseWsAny |> parseTypeAlias(ac) |> forEach(ta -> {
                 aliases |> MutList.push(ta);
                 Ref.put(true, progress)
             });
-            sc !> parseWsAny |> parseEnum |> forEach(e -> {
+            sc !> parseWsAny |> parseEnum(ac) |> forEach(e -> {
                 enums |> MutList.push(e);
                 Ref.put(true, progress)
             });
@@ -64,16 +64,29 @@ mod ScopeGraph.Parser {
     }
 
     ///
+    /// Treats nothing is `Ast.Access.Private`.
+    ///
+    /// Handles prefix whitespace.
+    def parseAccess(sc: SC[r]): Ast.Access \ r = {
+        sc |> parseWsAny;
+        if (sc |> parseKeywordOpt("pub")) {
+            Ast.Access.Public
+        } else {
+            Ast.Access.Private
+        }
+    }
+
+    ///
     /// If the cursor is at "mod " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix whitespace.
-    pub def parseModule(sc: SC[r]): Option[Ast.Module] \ r + Error = {
+    def parseModule(ac: Ast.Access, sc: SC[r]): Option[Ast.Module] \ r + Error = {
         if (sc |> parseKeywordOpt("mod")) {
             let name = sc !> parseWsAny |> parseName;
             sc !> parseWsAny |> parseChar('{');
             let scope = sc |> parseScope;
             sc !> parseWsAny |> parseChar('}');
-            Some(Ast.mkModule(name, scope))
+            Some(Ast.mkModule(ac, name, scope))
         } else {
             None
         }
@@ -83,7 +96,7 @@ mod ScopeGraph.Parser {
     /// If the cursor is at "type " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix whitespace.
-    pub def parseTypeAlias(sc: SC[r]): Option[Ast.TypeAlias] \ r + Error = {
+    def parseTypeAlias(ac: Ast.Access, sc: SC[r]): Option[Ast.TypeAlias] \ r + Error = {
         if (sc |> parseKeywordOpt("type")) {
             sc !> parseWsAny |> parseKeyword("alias");
             let name = sc !> parseWsAny |> parseWord;
@@ -94,7 +107,7 @@ mod ScopeGraph.Parser {
             } else Nil;
             sc !> parseWsAny |> parseChar('=');
             let tpe = sc |> parseType;
-            Some(Ast.mkTypeAlias(name, args, tpe))
+            Some(Ast.mkTypeAlias(ac, name, args, tpe))
         } else {
             None
         }
@@ -104,7 +117,7 @@ mod ScopeGraph.Parser {
     /// If the cursor is at "enum " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix whitespace.
-    pub def parseEnum(sc: SC[r]): Option[Ast.Enum] \ r + Error = {
+    def parseEnum(ac: Ast.Access, sc: SC[r]): Option[Ast.Enum] \ r + Error = {
         if (sc |> parseKeywordOpt("enum")) {
             let name = sc !> parseWsAny |> parseWord;
             let args = if (sc |> advanceIfMatchChar('[')) {
@@ -113,27 +126,28 @@ mod ScopeGraph.Parser {
                 args1
             } else Nil;
             sc !> parseWsAny |> parseChar('{');
-            let cases = sc |> parseRepeated(parseCase);
+            let cases = sc |> parseRepeated(parseEnumCase);
             sc !> parseWsAny |> parseChar('}');
-            Some(Ast.mkEnum(name, args, cases))
+            Some(Ast.mkEnum(ac, name, args, cases))
         } else {
             None
         }
     }
 
     ///
-    /// If the cursor is at "case " then parsing will start, otherwise None is returned.
+    /// If the cursor is at "case " or "pub " then parsing will start, otherwise None is returned.
     ///
-    /// DOES NOT handle prefix whitespace.
-    def parseCase(sc: SC[r]): Option[(Ast.LocString, List[Ast.Tpe])] \ r + Error = {
-        if (sc |> parseKeywordOpt("case")) {
+    /// Handles prefix whitespace.
+    def parseEnumCase(sc: SC[r]): Option[Ast.EnumCase] \ r + Error = {
+        let ac = sc |> parseAccess;
+        if (sc !> parseWsAny |> parseKeywordOpt("case")) {
             let name = sc !> parseWsAny |> parseWord;
             if (sc |> advanceIfMatchChar('(')) {
                 let types = sc |> parseCommaSeq(parseType);
                 sc !> parseWsAny |> parseChar(')');
-                Some((name, types))
+                Some(Ast.mkEnumCase(ac, name, types))
             } else {
-                Some((name, Nil))
+                Some(Ast.mkEnumCase(ac, name, Nil))
             }
         } else {
             None
@@ -156,15 +170,15 @@ mod ScopeGraph.Parser {
     /// If the cursor is at "use " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix whitespace.
-    pub def parseUse(sc: SC[r]): Option[Ast.Use] \ r + Error = {
+    def parseUse(ac: Ast.Access, sc: SC[r]): Option[Ast.Use] \ r + Error = {
         if (sc |> parseKeywordOpt("use")) {
             let name = sc !> parseWsAny |> parseName;
             sc |> parseWsAny;
             if (sc |> parseKeywordOpt("as")) {
                 let renaming = sc !> parseWsAny |> parseWord;
-                Some(Ast.mkRenamedUse(name, renaming))
+                Some(Ast.mkRenamedUse(ac, name, renaming))
             } else {
-                Some(Ast.mkUse(name))
+                Some(Ast.mkUse(ac, name))
             }
         } else {
             None
@@ -172,7 +186,7 @@ mod ScopeGraph.Parser {
     }
 
     /// Handles prefix whitespace.
-    pub def parseName(sc: SC[r]): Ast.Name \ r + Error = {
+    def parseName(sc: SC[r]): Ast.Name \ r + Error = {
         sc |> parseWsAny;
         def loop(acc) = match sc |> parseWordOpt {
             case Some(n) =>
