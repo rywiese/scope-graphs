@@ -28,14 +28,7 @@ mod ScopeGraph.Ast {
             Name.toString(x)
     }
 
-
     mod Name {
-        use Functor.map
-        use ScopeGraph.Ast.Loc.LocString
-
-        pub def getSimple(n: Name): (List[String], String) =
-            (coerce(n)#qualifiers |> map(LocString.getString), LocString.getString(coerce(n)#name))
-
         pub def toString(n: Name): String = {
             let {qualifiers, name} = coerce(n);
             List.join(".", qualifiers `List.append` List#{name})
@@ -61,18 +54,6 @@ mod ScopeGraph.Ast {
         pub def coerce(x: Use): {ac = Access, name = Name, renaming = Option[LocString]} = {
             let Use.Use(r) = x;
             r
-        }
-    }
-
-    mod Use {
-        use ScopeGraph.Ast.Name
-        use ScopeGraph.Ast.Loc.LocString
-        use Functor.map
-
-        pub def getSimple(u: Use): (List[String], String, Option[String]) = {
-            let {name = fullName, renaming | _} = coerce(u);
-            let (qual, name) = fullName |> Name.getSimple;
-            (qual, name, renaming |> map(LocString.getString))
         }
     }
 
@@ -229,13 +210,6 @@ mod ScopeGraph.Ast {
             let Module.Module(r) = x;
             r
         }
-    }
-
-    mod Module {
-        use ScopeGraph.Ast.Name;
-
-        pub def getName(m: Module): Name =
-            coerce(m)#name
     }
 
 }
