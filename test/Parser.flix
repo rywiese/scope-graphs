@@ -1,6 +1,6 @@
 mod ScopeGraph.Test.Parser {
     use Functor.map
-    use ScopeGraph.StringCursor.mk
+    use ScopeGraph.Parsing.StringCursor.mk
     use ScopeGraph.Parser
     use ScopeGraph.Ast
 

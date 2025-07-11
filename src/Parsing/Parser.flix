@@ -1,16 +1,16 @@
 mod ScopeGraph.Parser {
-    use ScopeGraph.{StringCursor => SC}
+    use ScopeGraph.Parsing.{StringCursor => SC}
     use ScopeGraph.Ast
-    use ScopeGraph.StringCursor.advanceIfMatchChar
-    use ScopeGraph.StringCursor.advanceIfMatchString
-    use ScopeGraph.StringCursor.advanceWhile
-    use ScopeGraph.StringCursor.advanceWhileAndCollect
-    use ScopeGraph.StringCursor.eof
-    use ScopeGraph.StringCursor.getColumn
-    use ScopeGraph.StringCursor.getLine
-    use ScopeGraph.StringCursor.getOffset
-    use ScopeGraph.StringCursor.nthIsP
-    use ScopeGraph.StringCursor.peek
+    use ScopeGraph.Parsing.StringCursor.advanceIfMatchChar
+    use ScopeGraph.Parsing.StringCursor.advanceIfMatchString
+    use ScopeGraph.Parsing.StringCursor.advanceWhile
+    use ScopeGraph.Parsing.StringCursor.advanceWhileAndCollect
+    use ScopeGraph.Parsing.StringCursor.eof
+    use ScopeGraph.Parsing.StringCursor.getColumn
+    use ScopeGraph.Parsing.StringCursor.getLine
+    use ScopeGraph.Parsing.StringCursor.getOffset
+    use ScopeGraph.Parsing.StringCursor.nthIsP
+    use ScopeGraph.Parsing.StringCursor.peek
 
     pub eff Error {
         def error(msg: String): Void

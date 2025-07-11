@@ -1,8 +1,8 @@
-mod ScopeGraph {
+mod ScopeGraph.Parsing {
 
 /// Iterate through a string while maintaining the line and column index of the
 /// cursor.
-struct StringCursor[r] {
+pub struct StringCursor[r] {
 
     data: String,
 
