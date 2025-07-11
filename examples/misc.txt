@@ -23,7 +23,6 @@ mod Q {
     pub mod Q2.Q3 {}
     mod B.B {}
     pub mod A {
-
         type alias T = String
     }
 }

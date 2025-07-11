@@ -83,9 +83,9 @@ mod ScopeGraph.Parser {
     def parseModule(ac: Ast.Access, sc: SC[r]): Option[Ast.Module] \ r + Error = {
         if (sc |> parseKeywordOpt("mod")) {
             let name = sc !> parseWsAny |> parseName;
-            sc !> parseWsAny |> parseChar('{');
+            sc |> parseChar('{');
             let scope = sc |> parseScope;
-            sc !> parseWsAny |> parseChar('}');
+            sc |> parseChar('}');
             Some(Ast.mkModule(ac, name, scope))
         } else {
             None
@@ -105,7 +105,7 @@ mod ScopeGraph.Parser {
                 sc |> parseChar(']');
                 args1
             } else Nil;
-            sc !> parseWsAny |> parseChar('=');
+            sc |> parseChar('=');
             let tpe = sc |> parseType;
             Some(Ast.mkTypeAlias(ac, name, args, tpe))
         } else {
@@ -125,9 +125,9 @@ mod ScopeGraph.Parser {
                 sc |> parseChar(']');
                 args1
             } else Nil;
-            sc !> parseWsAny |> parseChar('{');
+            sc |> parseChar('{');
             let cases = sc |> parseRepeated(parseEnumCase);
-            sc !> parseWsAny |> parseChar('}');
+            sc |> parseChar('}');
             Some(Ast.mkEnum(ac, name, args, cases))
         } else {
             None
@@ -144,7 +144,7 @@ mod ScopeGraph.Parser {
             let name = sc !> parseWsAny |> parseWord;
             if (sc |> advanceIfMatchChar('(')) {
                 let types = sc |> parseCommaSeq(parseType);
-                sc !> parseWsAny |> parseChar(')');
+                sc |> parseChar(')');
                 Some(Ast.mkEnumCase(ac, name, types))
             } else {
                 Some(Ast.mkEnumCase(ac, name, Nil))
@@ -279,9 +279,9 @@ mod ScopeGraph.Parser {
     def parseWsAny(sc: SC[r]): Unit \ r =
         sc |> advanceWhile(Char.isWhitespace)
 
-    /// DOES NOT handle prefix whitespace.
+    /// Handles prefix whitespace.
     def parseChar(c: Char, sc: SC[r]): Unit \ r + Error = {
-        if (sc |> advanceIfMatchChar(c)) {
+        if (sc !> parseWsAny |> advanceIfMatchChar(c)) {
             ()
         } else {
             sc |> errExpectChar(c)
@@ -299,10 +299,15 @@ mod ScopeGraph.Parser {
         Ast.mkLocString(s, Ast.mkLocRange(start, end))
 
     def errExpect(expected: String, sc: SC[r]): t \ r + Error =
-        err("Expected ${expected}, found '${sc |> peek}'", sc)
+        err("Expected ${expected}, found '${peekToString(sc)}'", sc)
 
     def errExpectChar(expected: Char, sc: SC[r]): t \ r + Error =
-        err("Expected '${expected}', found '${sc |> peek}'", sc)
+        err("Expected '${expected}', found '${peekToString(sc)}'", sc)
+
+    def peekToString(sc: SC[r]): String \ r = {
+        let c = sc |> peek;
+        if (c == '\u0000') "EOF" else ToString.toString(c)
+    }
 
     def err(msg: String, sc: SC[r]): t \ r + Error = {
         let loc = "${sc |> getLine + 1}:${sc |> getColumn + 1}";
