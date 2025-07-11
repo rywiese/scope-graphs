@@ -1,6 +1,8 @@
 mod ScopeGraph.Sanitizer {
     use Foldable.forEach
     use ScopeGraph.Ast
+    use ScopeGraph.Ast.Loc
+    use ScopeGraph.Ast.Loc.LocString
 
     pub eff Error {
         def error(msg: String): Unit
@@ -28,12 +30,12 @@ mod ScopeGraph.Sanitizer {
             case None => ()
             case Some(renaming) =>
                 let lastUsed = coerce(name)#name;
-                if (Ast.LocString.isUpperCase(lastUsed)) {
-                    if (not Ast.LocString.isUpperCase(renaming)) {
+                if (LocString.isUpperCase(lastUsed)) {
+                    if (not LocString.isUpperCase(renaming)) {
                         err("Cannot rename upper case to lower case", coerce(renaming)#loc)
                     } else ()
-                } else if (Ast.LocString.isLowerCase(lastUsed)) {
-                    if (not Ast.LocString.isLowerCase(renaming)) {
+                } else if (LocString.isLowerCase(lastUsed)) {
+                    if (not LocString.isLowerCase(renaming)) {
                         err("Cannot rename upper case to lower case", coerce(renaming)#loc)
                     } else ()
                 } else ()
@@ -59,7 +61,7 @@ mod ScopeGraph.Sanitizer {
         sanitizeTpe(tpe)
     }
 
-    def sanitizeTypeParams(args: List[Ast.LocString]): Unit \ Error =
+    def sanitizeTypeParams(args: List[LocString]): Unit \ Error =
         foreach (arg <- args) assertLower("Type arguments must be lower case", arg)
 
     def sanitizeTpe(tpe: Ast.Tpe): Unit \ Error = {
@@ -89,9 +91,9 @@ mod ScopeGraph.Sanitizer {
 
     def sanitizeDef(m: Ast.Def): Unit \ Error = {
         let {ac = _, name, args, tpe, exp} = coerce(m);
-        assertLower("defs must be lower case", dbg(name));
+        assertLower("defs must be lower case", name);
         foreach ((argName, argTpe) <- args) {
-            assertLower("Parameters must be lower case", dbg(argName));
+            assertLower("Parameters must be lower case", argName);
             sanitizeTpe(argTpe)
         };
         sanitizeTpe(tpe);
@@ -118,17 +120,17 @@ mod ScopeGraph.Sanitizer {
     def assertUpperName(msg: String, name: Ast.Name): Unit \ Error =
         assertUpper(msg, coerce(name)#name)
 
-    def assertUpper(msg: String, s: Ast.LocString): Unit \ Error = {
-        if (not Ast.LocString.isUpperCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
+    def assertUpper(msg: String, s: LocString): Unit \ Error = {
+        if (not LocString.isUpperCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
         else ()
     }
 
-    def assertLower(msg: String, s: Ast.LocString): Unit \ Error = {
-        if (not Ast.LocString.isLowerCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
+    def assertLower(msg: String, s: LocString): Unit \ Error = {
+        if (not LocString.isLowerCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
         else ()
     }
 
-    def err(msg: String, loc: Ast.LocRange): Unit \ Error = {
+    def err(msg: String, loc: Loc.LocRange): Unit \ Error = {
         Error.error("${msg} (${loc})")
     }
 

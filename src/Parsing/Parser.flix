@@ -1,8 +1,10 @@
 mod ScopeGraph.Parser {
     use Foldable.forEach
     use Functor.map
-    use ScopeGraph.Parsing.{StringCursor => SC}
     use ScopeGraph.Ast
+    use ScopeGraph.Ast.Loc
+    use ScopeGraph.Ast.Loc.LocString
+    use ScopeGraph.Parsing.{StringCursor => SC}
     use ScopeGraph.Parsing.StringCursor.advanceIfMatchString
     use ScopeGraph.Parsing.StringCursor.advanceWhile
     use ScopeGraph.Parsing.StringCursor.advanceWhileAndCollect
@@ -204,7 +206,7 @@ mod ScopeGraph.Parser {
     }
 
     /// Handles prefix whitespace.
-    def parseParam(sc: SC[r]): (Ast.LocString, Ast.Tpe) \ r + Error = {
+    def parseParam(sc: SC[r]): (LocString, Ast.Tpe) \ r + Error = {
         let name = sc !> parseWsAny |> parseWord;
         sc |> parseChar(':');
         let tpe = sc |> parseType;
@@ -329,7 +331,7 @@ mod ScopeGraph.Parser {
     }
 
     /// DOES NOT handle prefix whitespace.
-    def parseWordOpt(sc: SC[r]): Option[Ast.LocString] \ r = {
+    def parseWordOpt(sc: SC[r]): Option[LocString] \ r = {
         let start = sc |> getLoc;
         let head = sc |> peek;
         if (Char.isLetter(head)) {
@@ -342,7 +344,7 @@ mod ScopeGraph.Parser {
     }
 
     /// DOES NOT handle prefix whitespace.
-    def parseWord(sc: SC[r]): Ast.LocString \ r + Error = {
+    def parseWord(sc: SC[r]): LocString \ r + Error = {
         let start = sc |> getLoc;
         let head = sc |> peek;
         if (Char.isLetter(head)) {
@@ -379,11 +381,11 @@ mod ScopeGraph.Parser {
     def parseCharOpt(c: Char, sc: SC[r]): Bool \ r =
         sc |> SC.advanceIfMatchChar(c)
 
-    def getLoc(sc: SC[r]): Ast.Loc \ r =
-        Ast.mkLoc(line = getLine(sc) + 1, column = getColumn(sc) + 1, getOffset(sc))
+    def getLoc(sc: SC[r]): Loc.Loc \ r =
+        Loc.mkLoc(line = getLine(sc) + 1, column = getColumn(sc) + 1, getOffset(sc))
 
-    def mkLocString(s: String, start: {start = Ast.Loc}, end: Ast.Loc): Ast.LocString =
-        Ast.mkLocString(s, Ast.mkLocRange(start, end))
+    def mkLocString(s: String, start: {start = Loc.Loc}, end: Loc.Loc): LocString =
+        Loc.mkLocString(s, Loc.mkLocRange(start, end))
 
     def errExpect(expected: String, sc: SC[r]): t \ r + Error =
         err("Found '${peekToString(sc)}', expected ${expected}", sc)
