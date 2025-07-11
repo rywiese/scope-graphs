@@ -178,29 +178,34 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub def mkTypeAlias(name: LocString, args: List[LocString], types: List[Name]): TypeAlias =
-        TypeAlias.TypeAlias({name = name, args = args, types = types})
+    pub enum Tpe {
+        case Base(Name)
+        case App(Tpe, List[Tpe])
+    }
 
-    pub enum TypeAlias({name = LocString, args = List[LocString], types = List[Name]})
+    pub def mkTypeAlias(name: LocString, args: List[LocString], tpe: Tpe): TypeAlias =
+        TypeAlias.TypeAlias({name = name, args = args, tpe = tpe})
+
+    pub enum TypeAlias({name = LocString, args = List[LocString], tpe = Tpe})
 
     instance Coerce[TypeAlias] {
-        type Out = {name = LocString, args = List[LocString], types = List[Name]}
+        type Out = {name = LocString, args = List[LocString], tpe = Tpe}
 
-        pub def coerce(x: TypeAlias): {name = LocString, args = List[LocString], types = List[Name]} = {
+        pub def coerce(x: TypeAlias): {name = LocString, args = List[LocString], tpe = Tpe} = {
             let TypeAlias.TypeAlias(r) = x;
             r
         }
     }
 
-    pub def mkEnum(name: LocString, args: List[LocString], cases: List[(LocString, List[Name])]): Enum =
+    pub def mkEnum(name: LocString, args: List[LocString], cases: List[(LocString, List[Tpe])]): Enum =
         Enum.Enum({name = name, args = args, cases = cases})
 
-    pub enum Enum({name = LocString, args = List[LocString], cases = List[(LocString, List[Name])]})
+    pub enum Enum({name = LocString, args = List[LocString], cases = List[(LocString, List[Tpe])]})
 
     instance Coerce[Enum] {
-        type Out = {name = LocString, args = List[LocString], cases = List[(LocString, List[Name])]}
+        type Out = {name = LocString, args = List[LocString], cases = List[(LocString, List[Tpe])]}
 
-        pub def coerce(x: Enum): {name = LocString, args = List[LocString], cases = List[(LocString, List[Name])]} = {
+        pub def coerce(x: Enum): {name = LocString, args = List[LocString], cases = List[(LocString, List[Tpe])]} = {
             let Enum.Enum(r) = x;
             r
         }

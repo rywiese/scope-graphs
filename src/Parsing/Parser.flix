@@ -93,10 +93,8 @@ mod ScopeGraph.Parser {
                 args1
             } else Nil;
             sc !> parseWsAny |> parseChar('=');
-            sc !> parseWsAny |> parseChar('<');
-            let types = sc |> parseCommaSeq(parseName);
-            sc !> parseWsAny |> parseChar('>');
-            Some(Ast.mkTypeAlias(name, args, types))
+            let tpe = sc |> parseType;
+            Some(Ast.mkTypeAlias(name, args, tpe))
         } else {
             None
         }
@@ -123,16 +121,15 @@ mod ScopeGraph.Parser {
         }
     }
 
-
     ///
     /// If the cursor is at "case " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix whitespace.
-    def parseCase(sc: SC[r]): Option[(Ast.LocString, List[Ast.Name])] \ r + Error = {
+    def parseCase(sc: SC[r]): Option[(Ast.LocString, List[Ast.Tpe])] \ r + Error = {
         if (sc |> parseKeywordOpt("case")) {
             let name = sc !> parseWsAny |> parseWord;
             if (sc |> advanceIfMatchChar('(')) {
-                let types = sc |> parseCommaSeq(parseName);
+                let types = sc |> parseCommaSeq(parseType);
                 sc !> parseWsAny |> parseChar(')');
                 Some((name, types))
             } else {
@@ -140,6 +137,18 @@ mod ScopeGraph.Parser {
             }
         } else {
             None
+        }
+    }
+
+    /// Handles prefix whitespace.
+    def parseType(sc: SC[r]): Ast.Tpe \ r + Error = {
+        let base = Ast.Tpe.Base(sc !> parseWsAny |> parseName);
+        if (sc |> advanceIfMatchChar('[')) {
+            let args = sc |> parseCommaSeq(parseType);
+            sc |> parseChar(']');
+            Ast.Tpe.App(base, args)
+        } else {
+            base
         }
     }
 
