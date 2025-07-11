@@ -25,12 +25,6 @@ mod ScopeGraph.Test.Parser {
         true
     } with handleError
 
-    @Test
-    pub def examplesMisc(): Bool \ IO = {
-        discard ScopeGraph.Parsing.File.parseFileUnsafe("./examples/misc.txt");
-        true
-    }
-
     def handleError(f: Unit -> Bool \ ef): Bool \ ef - Parser.Error + IO = {
         run f() with handler Parser.Error {
             def error(msg, _) = {

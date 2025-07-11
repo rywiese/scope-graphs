@@ -106,6 +106,20 @@ mod ScopeGraph.Ast {
     mod LocString {
         pub def getString(s: LocString): String =
             coerce(s)#s
+
+        pub def isUpperCase(s: LocString): Bool = {
+            match s |> getString |> String.nth(0) {
+                case Some(c) => Char.isUpperCase(c)
+                case None => false
+            }
+        }
+
+        pub def isLowerCase(s: LocString): Bool = {
+            match s |> getString |> String.nth(0) {
+                case Some(c) => Char.isLowerCase(c)
+                case None => false
+            }
+        }
     }
 
     pub def mkName(qualifiers: List[LocString], name: LocString): Name =
@@ -249,6 +263,15 @@ mod ScopeGraph.Ast {
         name = LocString,
         terms = List[Tpe]
     })
+
+    instance Coerce[EnumCase] {
+        type Out = {ac = Access, name = LocString, terms = List[Tpe]}
+
+        pub def coerce(x: EnumCase): {ac = Access, name = LocString, terms = List[Tpe]} = {
+            let EnumCase.EnumCase(r) = x;
+            r
+        }
+    }
 
     pub def mkDef(ac: Access, name: LocString, args: List[(LocString, Tpe)], tpe: Tpe, exp: Exp): Def =
         Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})

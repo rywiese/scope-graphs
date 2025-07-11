@@ -1,0 +1,135 @@
+mod ScopeGraph.Sanitizer {
+    use Foldable.forEach
+    use ScopeGraph.Ast
+
+    pub eff Error {
+        def error(msg: String): Unit
+    }
+
+    pub def sanitize(p: Ast.Scope): Unit \ Error = {
+        let {
+            uses,
+            modules,
+            aliases,
+            enums,
+            defs
+        } = coerce(p);
+        uses |> forEach(sanitizeUse);
+        modules |> forEach(sanitizeModule);
+        aliases |> forEach(sanitizeAlias);
+        enums |> forEach(sanitizeEnum);
+        defs |> forEach(sanitizeDef)
+    }
+
+    def sanitizeUse(u: Ast.Use): Unit \ Error = {
+        let {ac = _, name, renaming = renamingOpt} = coerce(u);
+        sanitizeName(name);
+        match renamingOpt {
+            case None => ()
+            case Some(renaming) =>
+                let lastUsed = coerce(name)#name;
+                if (Ast.LocString.isUpperCase(lastUsed)) {
+                    if (not Ast.LocString.isUpperCase(renaming)) {
+                        err("Cannot rename upper case to lower case", coerce(renaming)#loc)
+                    } else ()
+                } else if (Ast.LocString.isLowerCase(lastUsed)) {
+                    if (not Ast.LocString.isLowerCase(renaming)) {
+                        err("Cannot rename upper case to lower case", coerce(renaming)#loc)
+                    } else ()
+                } else ()
+        }
+    }
+
+    def sanitizeName(n: Ast.Name): Unit \ Error = {
+        let {qualifiers, name = _} = coerce(n);
+        foreach (word <- qualifiers) assertUpper("Qualifiers must be upper case", word)
+    }
+
+    def sanitizeModule(m: Ast.Module): Unit \ Error = {
+        let {ac = _, name, scope} = coerce(m);
+        sanitizeName(name);
+        assertUpperName("Modules must be upper case", name);
+        sanitize(scope)
+    }
+
+    def sanitizeAlias(ta: Ast.TypeAlias): Unit \ Error = {
+        let {ac = _, name, args, tpe} = coerce(ta);
+        assertUpper("Type aliases must be upper case", name);
+        sanitizeTypeParams(args);
+        sanitizeTpe(tpe)
+    }
+
+    def sanitizeTypeParams(args: List[Ast.LocString]): Unit \ Error =
+        foreach (arg <- args) assertLower("Type arguments must be lower case", arg)
+
+    def sanitizeTpe(tpe: Ast.Tpe): Unit \ Error = {
+        match tpe {
+            case Ast.Tpe.Base(base) =>
+                sanitizeName(base);
+                if (coerce(base)#qualifiers |> List.isEmpty) ()
+                else assertUpperName("Qualified Types must be upper case", base)
+            case Ast.Tpe.App(base, ts) =>
+                sanitizeTpe(base);
+                foreach (t <- ts) sanitizeTpe(t)
+        }
+    }
+
+    def sanitizeEnum(m: Ast.Enum): Unit \ Error = {
+        let {ac = _, name, args, cases} = coerce(m);
+        assertUpper("Enums must have upper case names", name);
+        sanitizeTypeParams(args);
+        cases |> forEach(sanitizeCase)
+    }
+
+    def sanitizeCase(c: Ast.EnumCase): Unit \ Error = {
+        let {ac = _, name, terms} = coerce(c);
+        assertUpper("Enum cases must be upper case", name);
+        foreach (term <- terms) sanitizeTpe(term)
+    }
+
+    def sanitizeDef(m: Ast.Def): Unit \ Error = {
+        let {ac = _, name, args, tpe, exp} = coerce(m);
+        assertLower("defs must be lower case", dbg(name));
+        foreach ((argName, argTpe) <- args) {
+            assertLower("Parameters must be lower case", dbg(argName));
+            sanitizeTpe(argTpe)
+        };
+        sanitizeTpe(tpe);
+        sanitizeExp(exp)
+    }
+
+    def sanitizeExp(exp0: Ast.Exp): Unit \ Error = {
+        match exp0 {
+            case Ast.Exp.Let(name, exp1, exp2) =>
+                assertLower("let-binders must be lower case", name);
+                sanitizeExp(exp1);
+                sanitizeExp(exp2)
+            case Ast.Exp.Stmt(exp1, exp2) =>
+                sanitizeExp(exp1);
+                sanitizeExp(exp2)
+            case Ast.Exp.App(exp, exps) =>
+                sanitizeExp(exp);
+                exps |> forEach(sanitizeExp)
+            case Ast.Exp.Name(name) =>
+                sanitizeName(name)
+        }
+    }
+
+    def assertUpperName(msg: String, name: Ast.Name): Unit \ Error =
+        assertUpper(msg, coerce(name)#name)
+
+    def assertUpper(msg: String, s: Ast.LocString): Unit \ Error = {
+        if (not Ast.LocString.isUpperCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
+        else ()
+    }
+
+    def assertLower(msg: String, s: Ast.LocString): Unit \ Error = {
+        if (not Ast.LocString.isLowerCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
+        else ()
+    }
+
+    def err(msg: String, loc: Ast.LocRange): Unit \ Error = {
+        Error.error("${msg} (${loc})")
+    }
+
+}

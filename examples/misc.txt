@@ -9,7 +9,7 @@ pub enum Tuple2[a, b] {
     case Tuple2(a, b)
 }
 
-type alias TupledList[t] = List[Tuple2[t, t]]
+type alias TupleList[t] = List[Tuple2[t, t]]
 
 pub mod List {
     use ToString.toString as baseToString
@@ -19,7 +19,7 @@ pub mod List {
         Nil
     }
 
-    pub def toString(l: List[t]): String = {
+    pub def toString(l: List[Q.T]): String = {
         let something = Nil;
         Http.ping(something);
         baseToString(something)

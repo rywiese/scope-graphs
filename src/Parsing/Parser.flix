@@ -288,7 +288,7 @@ mod ScopeGraph.Parser {
             if (sc !> parseWsAny |> parseCharOpt(',')) {
                 loop(x :: acc)
             } else {
-                acc |> List.reverse
+                (x :: acc) |> List.reverse
             }
         };
         loop(Nil)
