@@ -5,18 +5,19 @@ mod ScopeGraph.Parser {
     use ScopeGraph.StringCursor.advanceIfMatchString
     use ScopeGraph.StringCursor.advanceWhile
     use ScopeGraph.StringCursor.advanceWhileAndCollect
+    use ScopeGraph.StringCursor.eof
     use ScopeGraph.StringCursor.getColumn
     use ScopeGraph.StringCursor.getLine
     use ScopeGraph.StringCursor.getOffset
     use ScopeGraph.StringCursor.nthIsP
     use ScopeGraph.StringCursor.peek
-    use ScopeGraph.StringCursor.eof
 
     pub eff Error {
         def error(msg: String): Void
     }
 
-    pub def parseProgram(sc: SC[r]): List[Ast.Module] \ r + Error = {
+    /// Like parseScope but also errors for unconsumed input.
+    pub def parseProgram(sc: SC[r]): Ast.Scope \ r + Error = {
         let scope = sc |> parseScope;
         sc |> parseWsAny;
         if (sc |> eof) {
@@ -26,15 +27,21 @@ mod ScopeGraph.Parser {
         }
     }
 
-    pub def parseScope(sc: SC[r]): List[Ast.Module] \ r + Error = {
-        def loop(acc) = {
+    pub def parseScope(sc: SC[r]): Ast.Scope \ r + Error = {
+        def loop(uses, modules) = {
             sc |> parseWsAny;
             match sc |> parseModule {
-                case Some(part) => loop(part :: acc)
-                case None => acc |> List.reverse
+                case Some(module) =>
+                    loop(uses, module :: modules)
+                case None => match sc |> parseUse {
+                    case Some(usage) =>
+                        loop(usage :: uses, modules)
+                    case None =>
+                        Ast.mkScope(uses |> List.reverse, modules |> List.reverse)
+                }
             }
         };
-        loop(Nil)
+        loop(Nil, Nil)
     }
 
     ///
@@ -47,7 +54,26 @@ mod ScopeGraph.Parser {
             sc !> parseWsAny |> parseChar('{');
             let scope = sc |> parseScope;
             sc !> parseWsAny |> parseChar('}');
-            Some(Ast.module(name, scope))
+            Some(Ast.mkModule(name, scope))
+        } else {
+            None
+        }
+    }
+
+    ///
+    /// If the cursor is at "use " then parsing will start, otherwise None is returned.
+    ///
+    /// DOES NOT handle prefix whitespace.
+    pub def parseUse(sc: SC[r]): Option[Ast.Use] \ r + Error = {
+        if (sc |> parseKeywordOpt("use")) {
+            let name = sc !> parseWsAny |> parseName;
+            sc |> parseWsAny;
+            if (sc |> parseKeywordOpt("as")) {
+                let renaming = sc !> parseWsAny |> parseWord;
+                Some(Ast.mkRenamedUse(name, renaming))
+            } else {
+                Some(Ast.mkUse(name))
+            }
         } else {
             None
         }
@@ -56,36 +82,22 @@ mod ScopeGraph.Parser {
     /// Handles prefix whitespace.
     pub def parseName(sc: SC[r]): Ast.Name \ r + Error = {
         sc |> parseWsAny;
-        def loop(acc) = match sc |> parseUpperOpt {
+        def loop(acc) = match sc |> parseUpperWordOpt {
             case Some(n) =>
                 match sc |> parseCharOpt('.') {
                     case true => loop(n :: acc)
-                    case false => Ast.name(acc |> List.reverse, n)
+                    case false => Ast.mkName(acc |> List.reverse, n)
                 }
-            case None => match sc |> parseLowerOpt {
-                case Some(n) =>
-                    Ast.name(acc |> List.reverse, n)
-                case None =>
-                    sc |> errExpect("letter")
-            }
+            case None =>
+                Ast.mkName(acc |> List.reverse, sc |> parseLowerWord)
         };
         loop(Nil)
     }
 
     /// DOES NOT handle prefix whitespace.
-    def _parseKeyword(kw: String, sc: SC[r]): Unit \ r + Error = {
-        let delimited = sc |> nthIsP(String.length(kw), c -> not Char.isLetter(c) and Char.isDigit(c), true);
-        if (delimited and sc |> advanceIfMatchString("mod")) {
-            ()
-        } else {
-            sc |> err("Expected 'mod'")
-        }
-    }
-
-    /// DOES NOT handle prefix whitespace.
     def parseKeywordOpt(kw: String, sc: SC[r]): Bool \ r = {
         let delimited = sc |> nthIsP(String.length(kw), c -> not (Char.isLetter(c) or Char.isDigit(c)), true);
-        if (delimited and sc |> advanceIfMatchString("mod")) {
+        if (delimited and sc |> advanceIfMatchString(kw)) {
             true
         } else {
             false
@@ -93,7 +105,7 @@ mod ScopeGraph.Parser {
     }
 
     /// DOES NOT handle prefix whitespace.
-    def parseUpperOpt(sc: SC[r]): Option[Ast.LocString] \ r = {
+    def parseUpperWordOpt(sc: SC[r]): Option[Ast.LocString] \ r = {
         let start = sc |> getLoc;
         let head = sc |> peek;
         if (Char.isLetter(head) and Char.isUpperCase(head)) {
@@ -106,15 +118,28 @@ mod ScopeGraph.Parser {
     }
 
     /// DOES NOT handle prefix whitespace.
-    def parseLowerOpt(sc: SC[r]): Option[Ast.LocString] \ r = {
+    def parseLowerWord(sc: SC[r]): Ast.LocString \ r + Error = {
         let start = sc |> getLoc;
         let head = sc |> peek;
         if (Char.isLetter(head) and Char.isLowerCase(head)) {
             let s = sc |> advanceWhileAndCollect(c -> Char.isLetter(c) or Char.isDigit(c));
             let end = sc |> getLoc;
-            Some(mkLocString(s, start = start, end))
+            mkLocString(s, start = start, end)
         } else {
-            None
+            sc |> errExpect("letter")
+        }
+    }
+
+    /// DOES NOT handle prefix whitespace.
+    def parseWord(sc: SC[r]): Ast.LocString \ r + Error = {
+        let start = sc |> getLoc;
+        let head = sc |> peek;
+        if (Char.isLetter(head)) {
+            let s = sc |> advanceWhileAndCollect(c -> Char.isLetter(c) or Char.isDigit(c));
+            let end = sc |> getLoc;
+            mkLocString(s, start = start, end)
+        } else {
+            sc |> errExpect("letter")
         }
     }
 
@@ -135,10 +160,10 @@ mod ScopeGraph.Parser {
         sc |> advanceIfMatchChar(c)
 
     def getLoc(sc: SC[r]): Ast.Loc \ r =
-        Ast.loc(line = getLine(sc) + 1, column = getColumn(sc) + 1, getOffset(sc))
+        Ast.mkLoc(line = getLine(sc) + 1, column = getColumn(sc) + 1, getOffset(sc))
 
     def mkLocString(s: String, start: {start = Ast.Loc}, end: Ast.Loc): Ast.LocString =
-        Ast.locString(s, Ast.locRange(start, end))
+        Ast.mkLocString(s, Ast.mkLocRange(start, end))
 
     def errExpect(expected: String, sc: SC[r]): t \ r + Error =
         err("Expected ${expected}, found '${sc |> peek}'", sc)

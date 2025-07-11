@@ -1,6 +1,6 @@
 mod ScopeGraph.Ast {
 
-    pub def loc(line: {line = Int32}, column: {column = Int32}, index: Int32): Loc =
+    pub def mkLoc(line: {line = Int32}, column: {column = Int32}, index: Int32): Loc =
         Loc.Loc({line = line#line, column = column#column, index = index})
 
     /// line is one-indexed.
@@ -34,7 +34,7 @@ mod ScopeGraph.Ast {
         }
     }
 
-    pub def locRange(start: {start = Loc}, end: Loc): LocRange =
+    pub def mkLocRange(start: {start = Loc}, end: Loc): LocRange =
         LocRange.LocRange({start = start#start, end = end})
 
     /// Start is inclusive, end is exclusive.
@@ -64,7 +64,6 @@ mod ScopeGraph.Ast {
         }
     }
 
-
     mod LocRange {
         /// Returns true if x is before y and doesn't overlap.
         pub def isBefore(x: LocRange, y: LocRange): Bool = {
@@ -77,7 +76,7 @@ mod ScopeGraph.Ast {
             not isBefore(x, y) and not isBefore(y, x)
     }
 
-    pub def locString(s: String, loc: LocRange): LocString =
+    pub def mkLocString(s: String, loc: LocRange): LocString =
         LocString.LocString({s = s, loc = loc})
 
     pub enum LocString({s = String, loc = LocRange})
@@ -109,7 +108,7 @@ mod ScopeGraph.Ast {
             coerce(s)#s
     }
 
-    pub def name(qualifiers: List[LocString], name: LocString): Name =
+    pub def mkName(qualifiers: List[LocString], name: LocString): Name =
         Name.Name({qualifiers = qualifiers, name = name})
 
     pub enum Name({qualifiers = List[LocString],  name = LocString})
@@ -146,19 +145,63 @@ mod ScopeGraph.Ast {
 
         pub def toString(n: Name): String = {
             let {qualifiers, name} = coerce(n);
-            "(${List.join(", ", qualifiers `List.append` List#{name})})"
+            List.join(".", qualifiers `List.append` List#{name})
         }
     }
 
-    pub def module(name: Name, modules: List[Module]): Module =
-        Module.Module({name = name, modules = modules})
+    pub def mkUse(name: Name): Use =
+        Use.Use({name = name, renaming = None})
 
-    pub enum Module({name = Name, modules = List[Module]})
+    pub def mkRenamedUse(name: Name, renaming: LocString): Use =
+        Use.Use({name = name, renaming = Some(renaming)})
+
+    pub enum Use({name = Name, renaming = Option[LocString]})
+
+    instance Coerce[Use] {
+        type Out = {name = Name, renaming = Option[LocString]}
+
+        pub def coerce(x: Use): {name = Name, renaming = Option[LocString]} = {
+            let Use.Use(r) = x;
+            r
+        }
+    }
+
+    mod Use {
+        use ScopeGraph.Ast.Name
+        use ScopeGraph.Ast.LocString
+        use Functor.map
+
+        pub def getSimple(u: Use): (List[String], String, Option[String]) = {
+            let {name = fullName, renaming} = coerce(u);
+            let (qual, name) = fullName |> Name.getSimple;
+            (qual, name, renaming |> map(LocString.getString))
+        }
+    }
+
+    pub def mkScope(uses: List[Use], modules: List[Module]): Scope =
+        Scope.Scope({uses = uses, modules = modules})
+
+    pub enum Scope({uses = List[Use], modules = List[Module]})
+
+    instance Coerce[Scope] {
+        type Out = {uses = List[Use], modules = List[Module]}
+
+        pub def coerce(x: Scope): {uses = List[Use], modules = List[Module]} = {
+            let Scope.Scope(r) = x;
+            r
+        }
+    }
+
+
+    pub def mkModule(name: Name, scope: Scope): Module =
+        Module.Module({name = name, scope = scope})
+
+    pub enum Module({name = Name, scope = Scope})
 
     instance Coerce[Module] {
-        type Out = {name = Name, modules = List[Module]}
+        type Out = {name = Name, scope = Scope}
 
-        pub def coerce(x: Module): {name = Name, modules = List[Module]} = {
+        pub def coerce(x: Module): {name = Name, scope = Scope} = {
             let Module.Module(r) = x;
             r
         }
@@ -167,7 +210,8 @@ mod ScopeGraph.Ast {
     mod Module {
         use ScopeGraph.Ast.Name;
 
-        pub def getName(m: Module): Name = coerce(m)#name
+        pub def getName(m: Module): Name =
+            coerce(m)#name
     }
 
 
