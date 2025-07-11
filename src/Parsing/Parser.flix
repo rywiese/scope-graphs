@@ -1,5 +1,6 @@
 mod ScopeGraph.Parser {
     use Foldable.forEach
+    use Functor.map
     use ScopeGraph.Parsing.{StringCursor => SC}
     use ScopeGraph.Ast
     use ScopeGraph.Parsing.StringCursor.advanceIfMatchChar
@@ -35,7 +36,7 @@ mod ScopeGraph.Parser {
         let progress = Ref.fresh(rc, true);
         def loop() = {
             Ref.put(false, progress);
-            let ac = sc |> parseAccess;
+            let (ac, _) = sc |> parseAccess;
             sc !> parseWsAny |> parseModule(ac) |> forEach(m -> {
                 modules |> MutList.push(m);
                 Ref.put(true, progress)
@@ -65,14 +66,15 @@ mod ScopeGraph.Parser {
 
     ///
     /// Treats nothing is `Ast.Access.Private`.
+    /// Returns (_, true) if any non-whitespace input was consumed.
     ///
     /// Handles prefix whitespace.
-    def parseAccess(sc: SC[r]): Ast.Access \ r = {
+    def parseAccess(sc: SC[r]): (Ast.Access, Bool) \ r = {
         sc |> parseWsAny;
         if (sc |> parseKeywordOpt("pub")) {
-            Ast.Access.Public
+            (Ast.Access.Public, true)
         } else {
-            Ast.Access.Private
+            (Ast.Access.Private, false)
         }
     }
 
@@ -85,7 +87,7 @@ mod ScopeGraph.Parser {
             let name = sc !> parseWsAny |> parseName;
             sc |> parseChar('{');
             let scope = sc |> parseScope;
-            sc |> parseChar('}');
+            sc |> parseCharHint('}', List#{"'type'", "'use'", "'enum'", "'pub'"});
             Some(Ast.mkModule(ac, name, scope))
         } else {
             None
@@ -102,7 +104,7 @@ mod ScopeGraph.Parser {
             let name = sc !> parseWsAny |> parseWord;
             let args = if (sc |> advanceIfMatchChar('[')) {
                 let args1 = sc |> parseCommaSeq(parseWord);
-                sc |> parseChar(']');
+                sc |> parseCharHint(']', List#{"letter"});
                 args1
             } else Nil;
             sc |> parseChar('=');
@@ -122,12 +124,12 @@ mod ScopeGraph.Parser {
             let name = sc !> parseWsAny |> parseWord;
             let args = if (sc |> advanceIfMatchChar('[')) {
                 let args1 = sc |> parseCommaSeq(parseWord);
-                sc |> parseChar(']');
+                sc |> parseCharHint(']', List#{"letter"});
                 args1
             } else Nil;
             sc |> parseChar('{');
             let cases = sc |> parseRepeated(parseEnumCase);
-            sc |> parseChar('}');
+            sc |> parseCharHint('}', List#{"'case'", "'pub'"});
             Some(Ast.mkEnum(ac, name, args, cases))
         } else {
             None
@@ -139,12 +141,14 @@ mod ScopeGraph.Parser {
     ///
     /// Handles prefix whitespace.
     def parseEnumCase(sc: SC[r]): Option[Ast.EnumCase] \ r + Error = {
-        let ac = sc |> parseAccess;
-        if (sc !> parseWsAny |> parseKeywordOpt("case")) {
+        let (ac, lockedIn) = sc |> parseAccess;
+        sc |> parseWsAny;
+        let skipCheck = if (lockedIn) {sc |> parseKeyword("case"); true} else false;
+        if (skipCheck or sc |> parseKeywordOpt("case")) {
             let name = sc !> parseWsAny |> parseWord;
             if (sc |> advanceIfMatchChar('(')) {
                 let types = sc |> parseCommaSeq(parseType);
-                sc |> parseChar(')');
+                sc |> parseCharHint(')', List#{"letter"});
                 Some(Ast.mkEnumCase(ac, name, types))
             } else {
                 Some(Ast.mkEnumCase(ac, name, Nil))
@@ -159,7 +163,7 @@ mod ScopeGraph.Parser {
         let base = Ast.Tpe.Base(sc !> parseWsAny |> parseName);
         if (sc |> advanceIfMatchChar('[')) {
             let args = sc |> parseCommaSeq(parseType);
-            sc |> parseChar(']');
+            sc |> parseCharHint(']', List#{"letter"});
             Ast.Tpe.App(base, args)
         } else {
             base
@@ -288,6 +292,15 @@ mod ScopeGraph.Parser {
         }
     }
 
+    /// Handles prefix whitespace.
+    def parseCharHint(c: Char, hints: List[String], sc: SC[r]): Unit \ r + Error = {
+        if (sc !> parseWsAny |> advanceIfMatchChar(c)) {
+            ()
+        } else {
+            sc |> err("Found '${peekToString(sc)}', expected ${hints |> List.join(", ")}, or '${c}'")
+        }
+    }
+
     /// DOES NOT handle prefix whitespace.
     def parseCharOpt(c: Char, sc: SC[r]): Bool \ r =
         sc |> advanceIfMatchChar(c)
@@ -299,10 +312,10 @@ mod ScopeGraph.Parser {
         Ast.mkLocString(s, Ast.mkLocRange(start, end))
 
     def errExpect(expected: String, sc: SC[r]): t \ r + Error =
-        err("Expected ${expected}, found '${peekToString(sc)}'", sc)
+        err("Found '${peekToString(sc)}', expected ${expected}", sc)
 
     def errExpectChar(expected: Char, sc: SC[r]): t \ r + Error =
-        err("Expected '${expected}', found '${peekToString(sc)}'", sc)
+        err("Found '${peekToString(sc)}', expected '${expected}'", sc)
 
     def peekToString(sc: SC[r]): String \ r = {
         let c = sc |> peek;
