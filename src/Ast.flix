@@ -131,12 +131,44 @@ mod ScopeGraph.Ast {
         }
     }
 
+    instance ToString[Name] {
+        pub def toString(x: Name): String =
+            Name.toString(x)
+    }
+
+
     mod Name {
         use Functor.map
         use ScopeGraph.Ast.LocString
 
         pub def getSimple(n: Name): (List[String], String) =
             (coerce(n)#qualifiers |> map(LocString.getString), LocString.getString(coerce(n)#name))
+
+        pub def toString(n: Name): String = {
+            let {qualifiers, name} = coerce(n);
+            "(${List.join(", ", qualifiers `List.append` List#{name})})"
+        }
     }
+
+    pub def module(name: Name, modules: List[Module]): Module =
+        Module.Module({name = name, modules = modules})
+
+    pub enum Module({name = Name, modules = List[Module]})
+
+    instance Coerce[Module] {
+        type Out = {name = Name, modules = List[Module]}
+
+        pub def coerce(x: Module): {name = Name, modules = List[Module]} = {
+            let Module.Module(r) = x;
+            r
+        }
+    }
+
+    mod Module {
+        use ScopeGraph.Ast.Name;
+
+        pub def getName(m: Module): Name = coerce(m)#name
+    }
+
 
 }
