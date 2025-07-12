@@ -18,7 +18,7 @@ mod ScopeGraph.Phase.Parser {
     mod Error {
         pub def runUnsafe(prefix: String, f: Unit -> t \ ef): t \ ef - Error =
             run f() with handler Error {
-                def error(msg, _) = bug!(prefix + " " + msg)
+                def error(msg, _) = bug!(prefix + ": " + msg)
             }
     }
 

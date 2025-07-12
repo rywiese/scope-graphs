@@ -12,10 +12,14 @@ mod ScopeGraph.Phase.Lexer {
         def error(msg: String): Void
     }
 
+    def err(msg: String, loc: Loc): t \ Error = {
+        Error.error("${msg} (${loc})")
+    }
+
     mod Error {
         pub def runUnsafe(prefix: String, f: Unit -> t \ ef): t \ ef - Error =
             run f() with handler Error {
-                def error(msg, _) = bug!(prefix + " " + msg)
+                def error(msg, _) = bug!(prefix + ": " + msg)
             }
     }
 
@@ -27,7 +31,7 @@ mod ScopeGraph.Phase.Lexer {
         let s = empty(sc |> SC.getRegion, sc);
         lexLoop(s);
         if (sc |> SC.eof) toVector(s)
-        else Error.error("Stuck at '${sc |> SC.peek |> escapedCharString}'")
+        else err("Stuck at '${sc |> SC.peek |> escapedCharString}'", sc |> getLoc)
     }
 
     type alias State[r: Region] = {
@@ -92,10 +96,11 @@ mod ScopeGraph.Phase.Lexer {
 
     def lexInt(s: State[r]): Unit \ r + Error = {
         if (s#sc |> SC.peekIs(Char.isDigit, false)) {
+            let loc = s#sc |> getLoc;
             let intRaw = s#sc |> SC.advanceWhileAndCollect(Char.isDigit);
             let int = match Int32.fromString(intRaw) {
                 case Some(i) => i
-                case None => Error.error("${intRaw} is too large")
+                case None => err("${intRaw} is too large", loc)
             };
             s |> collect(Token.Int(int))
         } else ()
