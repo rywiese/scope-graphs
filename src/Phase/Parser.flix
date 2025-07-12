@@ -1,4 +1,4 @@
-mod ScopeGraph.Phases.Parser {
+mod ScopeGraph.Phase.Parser {
     use Foldable.forEach
     use Functor.map
 
@@ -9,15 +9,26 @@ mod ScopeGraph.Phases.Parser {
     use ScopeGraph.Ast.Shared.Location
     use ScopeGraph.Ast.Shared.Location.LocString
     use ScopeGraph.Util.{VectorCursor => VC}
-    use ScopeGraph.Phases.Parser.{TokenCursor => TC}
+    use ScopeGraph.Phase.Parser.{TokenCursor => TC}
 
     pub eff Error {
         def error(msg: String): Void
     }
 
+    mod Error {
+        pub def runUnsafe(prefix: String, f: Unit -> t \ ef): t \ ef - Error =
+            run f() with handler Error {
+                def error(msg, _) = bug!(prefix + " " + msg)
+            }
+    }
+
     type alias TokenCursor[r: Region] = VC[Token, r]
 
-    pub def parseProgram(tc: TC[r]): ParsedAst.Scope \ r + Error = {
+    pub def parse(tokens: Vector[Token]): ParsedAst.Scope \ Error = region rc {
+        tokens |> VC.mk(rc) |> parseCursor
+    }
+
+    def parseCursor(tc: TC[r]): ParsedAst.Scope \ r + Error = {
         let scope = tc |> parseScope;
         tc |> parseWsAny;
         if (tc |> VC.inBounds) tc |> errExpect(expected = None |> peekToString, tc |> VC.peek |> peekToString, tc |> latestLoc)

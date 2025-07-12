@@ -1,4 +1,4 @@
-mod ScopeGraph.Phases.Sanitizer {
+mod ScopeGraph.Phase.Sanitizer {
     use Foldable.forEach
     use ScopeGraph.Ast.ParsedAst
     use ScopeGraph.Ast.Shared.Location
@@ -6,6 +6,13 @@ mod ScopeGraph.Phases.Sanitizer {
 
     pub eff Error {
         def error(msg: String): Unit
+    }
+
+    mod Error {
+        pub def runUnsafe(prefix: String, f: Unit -> t \ ef): t \ ef - Error =
+            run f() with handler Error {
+                def error(msg, _) = bug!(prefix + " " + msg)
+            }
     }
 
     pub def sanitize(p: ParsedAst.Scope): Unit \ Error = {

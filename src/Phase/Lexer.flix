@@ -1,4 +1,4 @@
-mod ScopeGraph.Phases.Lexer {
+mod ScopeGraph.Phase.Lexer {
     use Eq.eq
 
     use ScopeGraph.Ast.Lexed.Token
@@ -12,7 +12,18 @@ mod ScopeGraph.Phases.Lexer {
         def error(msg: String): Void
     }
 
-    pub def lex(sc: SC[r]): Vector[Token] \ r + Error = {
+    mod Error {
+        pub def runUnsafe(prefix: String, f: Unit -> t \ ef): t \ ef - Error =
+            run f() with handler Error {
+                def error(msg, _) = bug!(prefix + " " + msg)
+            }
+    }
+
+    pub def lex(s: String): Vector[Token] \ Error = region rc {
+        s |> SC.mk(rc) |> lexCursor
+    }
+
+    def lexCursor(sc: SC[r]): Vector[Token] \ r + Error = {
         let s = empty(sc |> SC.getRegion, sc);
         lexLoop(s);
         if (sc |> SC.eof) toVector(s)
