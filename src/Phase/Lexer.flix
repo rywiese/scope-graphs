@@ -3,31 +3,21 @@ mod ScopeGraph.Phase.Lexer {
 
     use ScopeGraph.Ast.Lexed.Token
     use ScopeGraph.Ast.Shared.Location
+    use ScopeGraph.Ast.Shared.Error
+    use ScopeGraph.Ast.Shared.Crash
     use ScopeGraph.Ast.Shared.Location.Loc
     use ScopeGraph.Ast.Shared.Location.LocRange
     use ScopeGraph.Ast.Shared.Location.LocString
     use ScopeGraph.Util.{StringCursor => SC}
 
-    pub eff Error {
-        def error(msg: String): Void
-    }
+    def err(msg: String, loc: Loc): t \ Crash =
+        Crash.crash(Error.mkError(category = "Lexer", msg, loc))
 
-    def err(msg: String, loc: Loc): t \ Error = {
-        Error.error("${msg} (${loc})")
-    }
-
-    mod Error {
-        pub def runUnsafe(prefix: String, f: Unit -> t \ ef): t \ ef - Error =
-            run f() with handler Error {
-                def error(msg, _) = bug!(prefix + ": " + msg)
-            }
-    }
-
-    pub def lex(s: String): Vector[Token] \ Error = region rc {
+    pub def lex(s: String): Vector[Token] \ Crash = region rc {
         s |> SC.mk(rc) |> lexCursor
     }
 
-    def lexCursor(sc: SC[r]): Vector[Token] \ r + Error = {
+    def lexCursor(sc: SC[r]): Vector[Token] \ r + Crash = {
         let s = empty(sc |> SC.getRegion, sc);
         lexLoop(s);
         if (sc |> SC.eof) toVector(s)
@@ -57,7 +47,7 @@ mod ScopeGraph.Phase.Lexer {
     def toVector(s: State[r]): Vector[Token] \ r =
         MutList.toVector(s#tokens)
 
-    def lexLoop(s: State[r]): Unit \ r + Error = {
+    def lexLoop(s: State[r]): Unit \ r + Crash = {
         let startOffset = s#sc |> SC.getOffset;
 
         lexWs(s);
@@ -94,7 +84,7 @@ mod ScopeGraph.Phase.Lexer {
         } else ()
     }
 
-    def lexInt(s: State[r]): Unit \ r + Error = {
+    def lexInt(s: State[r]): Unit \ r + Crash = {
         if (s#sc |> SC.peekIs(Char.isDigit, false)) {
             let loc = s#sc |> getLoc;
             let intRaw = s#sc |> SC.advanceWhileAndCollect(Char.isDigit);
