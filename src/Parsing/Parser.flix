@@ -215,13 +215,18 @@ mod ScopeGraph.Parser {
 
     /// Handles prefix whitespace.
     def parseExpSimple(sc: SC[r]): Ast.Exp \ r + Error = {
-        if (sc !> parseWsAny |> parseKeywordOpt("let")) {
+        sc |> parseWsAny;
+        if (sc |> parseKeywordOpt("let")) {
             let name = sc !> parseWsAny |> parseWord;
             sc !> parseWsAny |> parseChar('=');
             let binding = sc |> parseExp;
             sc !> parseWsAny |> parseChar(';');
             let body = sc |> parseExp;
             Ast.Exp.Let(name, binding, body)
+        } else if (sc |> parseKeywordOpt("true")) {
+            Ast.Exp.Bool(true)
+        } else if (sc |> parseKeywordOpt("false")) {
+            Ast.Exp.Bool(false)
         } else if (sc |> peek |> Char.isDigit) {
             let loc = sc |> getLoc;
             let digits = sc |> advanceWhileAndCollect(Char.isDigit);

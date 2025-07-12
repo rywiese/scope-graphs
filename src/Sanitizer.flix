@@ -116,6 +116,8 @@ mod ScopeGraph.Sanitizer {
                 sanitizeName(name)
             case Ast.Exp.Int(_) =>
                 ()
+            case Ast.Exp.Bool(_) =>
+                ()
         }
     }
 

@@ -20,9 +20,9 @@ pub mod List {
     }
 
     pub def toString(l: List[Q.T]): String = {
-        let something = Nil;
+        let something = true;
         Http.ping(42);
-        baseToString(something)
+        baseToString(something, false)
     }
 
 
