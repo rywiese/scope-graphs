@@ -1,0 +1,44 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "flixSG",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#comments"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.other.flixSG",
+					"match": "\\b(def|enum|type|mod|use|let|case|pub|alias)\\b"
+				}
+			]
+		},
+		"constants": {
+			"patterns": [
+				{
+					"name": "constant.language.flixSG",
+					"match": "\\b(true|false)\\b"
+				},
+				{
+					"name": "constant.numeric.flixSG",
+					"match": "\\b[0-9]+\\b"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [{
+				"name": "comment.line.double-slash.flixSG",
+				"match": "//[^\n]*"
+			}]
+		}
+	},
+	"scopeName": "source.flixSG"
+}

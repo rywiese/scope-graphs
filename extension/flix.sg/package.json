@@ -1,0 +1,26 @@
+{
+  "name": "flixSG",
+  "displayName": "flixSG",
+  "description": "syntax highlighting for flix scope graphs",
+  "version": "0.0.1",
+  "repository": {},
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "flixSG",
+      "aliases": ["flixSG"],
+      "extensions": [".flixSG"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "flixSG",
+      "scopeName": "source.flixSG",
+      "path": "./syntaxes/flixSG.tmLanguage.json"
+    }]
+  }
+}
