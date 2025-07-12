@@ -22,7 +22,7 @@ pub mod List {
 
     pub def toString(l: List[Q.T]): String = {
         let something = true; // inline cool
-        Http.ping(42 //more inelin
+        Http.ping(42 //more inline
         );
         baseToString(something, false)
     }
