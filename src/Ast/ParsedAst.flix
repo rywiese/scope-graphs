@@ -1,5 +1,5 @@
 mod ScopeGraph.Ast.ParsedAst {
-    use ScopeGraph.Ast.Shared.Loc.LocString
+    use ScopeGraph.Ast.Shared.Location.LocString
 
     pub def mkScope(
         uses: List[Use],

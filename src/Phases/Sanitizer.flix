@@ -1,8 +1,8 @@
 mod ScopeGraph.Phases.Sanitizer {
     use Foldable.forEach
     use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Ast.Shared.Loc
-    use ScopeGraph.Ast.Shared.Loc.LocString
+    use ScopeGraph.Ast.Shared.Location
+    use ScopeGraph.Ast.Shared.Location.LocString
 
     pub eff Error {
         def error(msg: String): Unit
@@ -134,7 +134,7 @@ mod ScopeGraph.Phases.Sanitizer {
         else ()
     }
 
-    def err(msg: String, loc: Loc.LocRange): Unit \ Error = {
+    def err(msg: String, loc: Location.LocRange): Unit \ Error = {
         Error.error("${msg} (${loc})")
     }
 

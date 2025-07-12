@@ -40,6 +40,10 @@ mod StringCursor {
     pub def getOffset(sc: StringCursor[r]): Int32 \ r =
         sc->offset
 
+    /// Returns the region of `sc`.
+    pub def getRegion(sc: StringCursor[r]): Region[r] =
+      sc->rc
+
     ///
     /// Returns `(line, column)` (zero-indexed) where non-existent positions are preferred instead
     /// of the first position of the next line.
@@ -202,10 +206,18 @@ mod StringCursor {
     }
 
     /// Faster equivalent of `nth(n).map(p).getOrElse(orElse)`.
-    pub def nthIsP(n: Int32, p: Char -> Bool, orElse: Bool, sc: StringCursor[r]): Bool \ r = {
+    pub def nthIs(n: Int32, p: Char -> Bool, orElse: Bool, sc: StringCursor[r]): Bool \ r = {
       let index = sc->offset + n;
       if (0 <= index and index < String.length(sc->data)) {
         p(getChar(index, sc))
+      } else {
+        orElse
+      }
+    }
+
+    pub def peekIs(p: Char -> Bool, orElse: Bool, sc: StringCursor[r]): Bool \ r = {
+      if (inBounds(sc)) {
+        p(getChar(sc->offset, sc))
       } else {
         orElse
       }

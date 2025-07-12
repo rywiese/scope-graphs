@@ -2,13 +2,16 @@ mod ScopeGraph.File {
     use ScopeGraph.Ast
     use ScopeGraph.Phases.Parser
     use ScopeGraph.Phases.Sanitizer
+    use ScopeGraph.Phases.Lexer
     use ScopeGraph.Util.StringCursor
+    use ScopeGraph.Util.VectorCursor
 
     /// Errors crash unsafely.
-    pub def checkFile(path: String): Unit \ Parser.Error + Sanitizer.Error + FileRead + IO = region rc {
+    pub def checkFile(path: String): Unit \ Parser.Error + Sanitizer.Error + Lexer.Error + FileRead + IO = region rc {
         let input = FileRead.read(path);
-        let sc = StringCursor.mk(rc, input);
-        let program = Parser.parseProgram(sc);
+        let lexed = input |> StringCursor.mk(rc) |> Lexer.lex;
+        println("Lexed successfully");
+        let program = lexed |> VectorCursor.mk(rc) |> Parser.parseProgram;
         println("parsed successfully");
         Sanitizer.sanitize(program);
         println("Sanitized successfully")
@@ -16,6 +19,10 @@ mod ScopeGraph.File {
 
     pub def checkFileUnsafe(path: String): Unit \ IO =
         run checkFile(path)
+        with handler Lexer.Error {
+            def error(msg, _) =
+                bug!("Lexer error: ${msg}")
+        }
         with handler Parser.Error {
             def error(msg, _) =
                 bug!("Parser error: ${msg}")
