@@ -7,4 +7,3 @@
 
 ## Known parsing issues
 - Trailing `pub` are ignored in scopes.
-- Comments are missing.
