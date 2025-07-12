@@ -1,10 +1,10 @@
 mod ScopeGraph.File {
-    use ScopeGraph.Sanitizer
     use ScopeGraph.Ast
-    use ScopeGraph.Parser
-    use ScopeGraph.Parsing.StringCursor
+    use ScopeGraph.Phases.Parser
+    use ScopeGraph.Phases.Sanitizer
+    use ScopeGraph.Util.StringCursor
 
-    /// Errors crash unsafely
+    /// Errors crash unsafely.
     pub def checkFile(path: String): Unit \ Parser.Error + Sanitizer.Error + FileRead + IO = region rc {
         let input = FileRead.read(path);
         let sc = StringCursor.mk(rc, input);

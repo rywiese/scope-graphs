@@ -1,4 +1,4 @@
-mod ScopeGraph.Ast.Loc {
+mod ScopeGraph.Ast.Shared.Loc {
 
     pub def mkLoc(line: {line = Int32}, column: {column = Int32}, index: Int32): Loc =
         Loc.Loc({line = line#line, column = column#column, index = index})

@@ -1,14 +1,14 @@
-mod ScopeGraph.Sanitizer {
+mod ScopeGraph.Phases.Sanitizer {
     use Foldable.forEach
-    use ScopeGraph.Ast
-    use ScopeGraph.Ast.Loc
-    use ScopeGraph.Ast.Loc.LocString
+    use ScopeGraph.Ast.ParsedAst
+    use ScopeGraph.Ast.Shared.Loc
+    use ScopeGraph.Ast.Shared.Loc.LocString
 
     pub eff Error {
         def error(msg: String): Unit
     }
 
-    pub def sanitize(p: Ast.Scope): Unit \ Error = {
+    pub def sanitize(p: ParsedAst.Scope): Unit \ Error = {
         let {
             uses,
             modules,
@@ -23,7 +23,7 @@ mod ScopeGraph.Sanitizer {
         defs |> forEach(sanitizeDef)
     }
 
-    def sanitizeUse(u: Ast.Use): Unit \ Error = {
+    def sanitizeUse(u: ParsedAst.Use): Unit \ Error = {
         let {ac = _, name, renaming = renamingOpt} = coerce(u);
         sanitizeName(name);
         match renamingOpt {
@@ -42,19 +42,19 @@ mod ScopeGraph.Sanitizer {
         }
     }
 
-    def sanitizeName(n: Ast.Name): Unit \ Error = {
+    def sanitizeName(n: ParsedAst.Name): Unit \ Error = {
         let {qualifiers, name = _} = coerce(n);
         foreach (word <- qualifiers) assertUpper("Qualifiers must be upper case", word)
     }
 
-    def sanitizeModule(m: Ast.Module): Unit \ Error = {
+    def sanitizeModule(m: ParsedAst.Module): Unit \ Error = {
         let {ac = _, name, scope} = coerce(m);
         sanitizeName(name);
         assertUpperName("Modules must be upper case", name);
         sanitize(scope)
     }
 
-    def sanitizeAlias(ta: Ast.TypeAlias): Unit \ Error = {
+    def sanitizeAlias(ta: ParsedAst.TypeAlias): Unit \ Error = {
         let {ac = _, name, args, tpe} = coerce(ta);
         assertUpper("Type aliases must be upper case", name);
         sanitizeTypeParams(args);
@@ -64,32 +64,32 @@ mod ScopeGraph.Sanitizer {
     def sanitizeTypeParams(args: List[LocString]): Unit \ Error =
         foreach (arg <- args) assertLower("Type arguments must be lower case", arg)
 
-    def sanitizeTpe(tpe: Ast.Tpe): Unit \ Error = {
+    def sanitizeTpe(tpe: ParsedAst.Tpe): Unit \ Error = {
         match tpe {
-            case Ast.Tpe.Base(base) =>
+            case ParsedAst.Tpe.Base(base) =>
                 sanitizeName(base);
                 if (coerce(base)#qualifiers |> List.isEmpty) ()
                 else assertUpperName("Qualified Types must be upper case", base)
-            case Ast.Tpe.App(base, ts) =>
+            case ParsedAst.Tpe.App(base, ts) =>
                 sanitizeTpe(base);
                 foreach (t <- ts) sanitizeTpe(t)
         }
     }
 
-    def sanitizeEnum(m: Ast.Enum): Unit \ Error = {
+    def sanitizeEnum(m: ParsedAst.Enum): Unit \ Error = {
         let {ac = _, name, args, cases} = coerce(m);
         assertUpper("Enums must have upper case names", name);
         sanitizeTypeParams(args);
         cases |> forEach(sanitizeCase)
     }
 
-    def sanitizeCase(c: Ast.EnumCase): Unit \ Error = {
+    def sanitizeCase(c: ParsedAst.EnumCase): Unit \ Error = {
         let {ac = _, name, terms} = coerce(c);
         assertUpper("Enum cases must be upper case", name);
         foreach (term <- terms) sanitizeTpe(term)
     }
 
-    def sanitizeDef(m: Ast.Def): Unit \ Error = {
+    def sanitizeDef(m: ParsedAst.Def): Unit \ Error = {
         let {ac = _, name, args, tpe, exp} = coerce(m);
         assertLower("defs must be lower case", name);
         foreach ((argName, argTpe) <- args) {
@@ -100,28 +100,28 @@ mod ScopeGraph.Sanitizer {
         sanitizeExp(exp)
     }
 
-    def sanitizeExp(exp0: Ast.Exp): Unit \ Error = {
+    def sanitizeExp(exp0: ParsedAst.Exp): Unit \ Error = {
         match exp0 {
-            case Ast.Exp.Let(name, exp1, exp2) =>
+            case ParsedAst.Exp.Let(name, exp1, exp2) =>
                 assertLower("let-binders must be lower case", name);
                 sanitizeExp(exp1);
                 sanitizeExp(exp2)
-            case Ast.Exp.Stmt(exp1, exp2) =>
+            case ParsedAst.Exp.Stmt(exp1, exp2) =>
                 sanitizeExp(exp1);
                 sanitizeExp(exp2)
-            case Ast.Exp.App(exp, exps) =>
+            case ParsedAst.Exp.App(exp, exps) =>
                 sanitizeExp(exp);
                 exps |> forEach(sanitizeExp)
-            case Ast.Exp.Name(name) =>
+            case ParsedAst.Exp.Name(name) =>
                 sanitizeName(name)
-            case Ast.Exp.Int(_) =>
+            case ParsedAst.Exp.Int(_) =>
                 ()
-            case Ast.Exp.Bool(_) =>
+            case ParsedAst.Exp.Bool(_) =>
                 ()
         }
     }
 
-    def assertUpperName(msg: String, name: Ast.Name): Unit \ Error =
+    def assertUpperName(msg: String, name: ParsedAst.Name): Unit \ Error =
         assertUpper(msg, coerce(name)#name)
 
     def assertUpper(msg: String, s: LocString): Unit \ Error = {

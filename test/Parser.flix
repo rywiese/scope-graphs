@@ -1,8 +1,8 @@
 mod ScopeGraph.Test.Parser {
     use Functor.map
-    use ScopeGraph.Parsing.StringCursor.mk
-    use ScopeGraph.Parser
     use ScopeGraph.Ast
+    use ScopeGraph.Phases.Parser
+    use ScopeGraph.Util.StringCursor.mk
 
     @Test
     pub def module01(): Bool \ IO = run region rc {

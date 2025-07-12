@@ -1,4 +1,4 @@
-mod ScopeGraph.Parsing {
+mod ScopeGraph.Util {
 
 /// Iterate through a string while maintaining the line and column index of the
 /// cursor.
