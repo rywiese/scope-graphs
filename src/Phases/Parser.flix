@@ -238,6 +238,11 @@ mod ScopeGraph.Phases.Parser {
             case Token.Int(i, _) =>
                 tc |> VC.advance;
                 (ParsedAst.Exp.Int(i), false)
+            case Token.ParenCurlyLeft(_) =>
+                tc |> VC.advance;
+                let exp = tc |> parseExp;
+                tc |> parseToken(TokenKind.ParenCurlyRight);
+                (exp, false)
             case other =>
                 tc |> errExpect(expected = "expression", ToString.toString(other), other |> Token.getLoc)
         }
