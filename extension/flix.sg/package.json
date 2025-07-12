@@ -3,7 +3,7 @@
   "displayName": "flixSG",
   "description": "syntax highlighting for flix scope graphs",
   "version": "0.0.1",
-  "repository": {},
+  "repository": "https://github.com/JonathanStarup/scope-graphs",
   "engines": {
     "vscode": "^1.99.0"
   },
