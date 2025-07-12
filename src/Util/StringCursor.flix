@@ -20,7 +20,10 @@ pub struct StringCursor[r] {
     mut prevLineMaxColumn: Int32,
 
     // The character returned by peek, etc. if the cursor is out of bounds.
-    eof: Char
+    eof: Char,
+
+    rc: Region[r]
+
 }
 
 mod StringCursor {
@@ -215,7 +218,8 @@ mod StringCursor {
             line = 0,
             column = 0,
             prevLineMaxColumn = -1,
-            eof = '\u0000'
+            eof = '\u0000',
+            rc = rc
         }
     }
 
@@ -227,7 +231,8 @@ mod StringCursor {
         line = sc->line,
         column = sc->column,
         prevLineMaxColumn = sc->prevLineMaxColumn,
-        eof = sc->eof
+        eof = sc->eof,
+        rc = rc
       };
       scNew
     }
