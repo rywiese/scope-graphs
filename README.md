@@ -1,9 +1,14 @@
 # scope-graphs
 
-- [AST](src/Ast.flix) contains the Parsed AST
-- [Parser](src/Parsing/Parser.flix) allows parsing of strings
-- [File](src/File.flix) allows "checking" files, i.e. the full pipeline
-- [Sanitizer](src/Sanitizer.flix) can sanitize parsed output, doing extra checks.
+Use [Main](src/Main.flix) to `compile` and `compileFile` to run all phases.
 
-## Known parsing issues
-- Trailing `pub` are ignored in scopes.
+See [Examples](examples/) for a view of the language.
+
+### Asts
+- [AST](src/Ast/ParsedAst.flix) contains the Parsed AST.
+
+### Phases
+- [File](src/Phase/File.flix) reads files (`String`).
+- [Lexer](src/Phase/Lexer.flix) tokenizes strings (`String -> Vector[Token]`).
+- [Parser](src/Phase/Parser.flix) parses tokens (`Vector[Token] -> ParsedAst.Scope`).
+- [Sanitizer](src/Phase/Sanitizer.flix) sanitizes the parsed output (`ParsedAst.Scope -> Unit`).
