@@ -1,21 +1,6 @@
 mod ScopeGraph.Ast.ParsedAst {
     use ScopeGraph.Ast.Shared.Location.LocString
 
-    pub def mkScope(
-        uses: List[Use],
-        modules: List[Module],
-        aliases: List[TypeAlias],
-        enums: List[Enum],
-        defs: List[Def]
-    ): Scope =
-        Scope.Scope({
-            uses = uses,
-            modules = modules,
-            aliases = aliases,
-            enums = enums,
-            defs = defs
-        })
-
     pub enum Scope({
         uses = List[Use],
         modules = List[Module],
@@ -24,34 +9,17 @@ mod ScopeGraph.Ast.ParsedAst {
         defs = List[Def]
     })
 
-    pub def mkUse(ac: Access, name: Name): Use =
-        Use.Use({ac = ac, name = name, renaming = None})
-
-    pub def mkRenamedUse(ac: Access, name: Name, renaming: LocString): Use =
-        Use.Use({ac = ac, name = name, renaming = Some(renaming)})
-
     pub enum Use({
         ac = Access,
         name = Name,
         renaming = Option[LocString]
     })
 
-    pub def mkModule(ac: Access, name: Name, scope: Scope): Module =
-        Module.Module({ac = ac, name = name, scope = scope})
-
     pub enum Module({
         ac = Access,
         name = Name,
         scope = Scope
     })
-
-    pub def mkTypeAlias(
-        ac: Access,
-        name: LocString,
-        args: List[LocString],
-        tpe: Tpe
-    ): TypeAlias =
-        TypeAlias.TypeAlias({ac = ac, name = name, args = args, tpe = tpe})
 
     pub enum TypeAlias({
         ac = Access,
@@ -60,14 +28,6 @@ mod ScopeGraph.Ast.ParsedAst {
         tpe = Tpe
     })
 
-    pub def mkEnum(
-        ac: Access,
-        name: LocString,
-        args: List[LocString],
-        cases: List[EnumCase]
-    ): Enum =
-        Enum.Enum({ac = ac, name = name, args = args, cases = cases})
-
     pub enum Enum({
         ac = Access,
         name = LocString,
@@ -75,23 +35,11 @@ mod ScopeGraph.Ast.ParsedAst {
         cases = List[EnumCase]
     })
 
-    pub def mkEnumCase(ac: Access, name: LocString, terms: List[Tpe]): EnumCase =
-        EnumCase.EnumCase({ac = ac, name = name, terms = terms})
-
     pub enum EnumCase({
         ac = Access,
         name = LocString,
         terms = List[Tpe]
     })
-
-    pub def mkDef(
-        ac: Access,
-        name: LocString,
-        args: List[(LocString, Tpe)],
-        tpe: Tpe,
-        exp: Exp
-    ): Def =
-        Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})
 
     pub enum Def({
         ac = Access,
@@ -115,9 +63,6 @@ mod ScopeGraph.Ast.ParsedAst {
         case Private
     }
 
-    pub def mkName(qualifiers: List[LocString], name: LocString): Name =
-        Name.Name({qualifiers = qualifiers, name = name})
-
     pub enum Name({
         qualifiers = List[LocString],
         name = LocString
@@ -127,6 +72,69 @@ mod ScopeGraph.Ast.ParsedAst {
         case Base(Name)
         case App(Tpe, List[Tpe])
     }
+
+
+
+    //
+    // Better Constructors.
+    //
+
+
+    pub def mkScope(
+        uses: List[Use],
+        modules: List[Module],
+        aliases: List[TypeAlias],
+        enums: List[Enum],
+        defs: List[Def]
+    ): Scope =
+        Scope.Scope({
+            uses = uses,
+            modules = modules,
+            aliases = aliases,
+            enums = enums,
+            defs = defs
+        })
+
+    pub def mkUse(ac: Access, name: Name): Use =
+        Use.Use({ac = ac, name = name, renaming = None})
+
+    pub def mkRenamedUse(ac: Access, name: Name, renaming: LocString): Use =
+        Use.Use({ac = ac, name = name, renaming = Some(renaming)})
+
+    pub def mkModule(ac: Access, name: Name, scope: Scope): Module =
+        Module.Module({ac = ac, name = name, scope = scope})
+
+    pub def mkTypeAlias(
+        ac: Access,
+        name: LocString,
+        args: List[LocString],
+        tpe: Tpe
+    ): TypeAlias =
+        TypeAlias.TypeAlias({ac = ac, name = name, args = args, tpe = tpe})
+
+    pub def mkEnum(
+        ac: Access,
+        name: LocString,
+        args: List[LocString],
+        cases: List[EnumCase]
+    ): Enum =
+        Enum.Enum({ac = ac, name = name, args = args, cases = cases})
+
+    pub def mkEnumCase(ac: Access, name: LocString, terms: List[Tpe]): EnumCase =
+        EnumCase.EnumCase({ac = ac, name = name, terms = terms})
+
+    pub def mkDef(
+        ac: Access,
+        name: LocString,
+        args: List[(LocString, Tpe)],
+        tpe: Tpe,
+        exp: Exp
+    ): Def =
+        Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})
+
+    pub def mkName(qualifiers: List[LocString], name: LocString): Name =
+        Name.Name({qualifiers = qualifiers, name = name})
+
 
 
 
