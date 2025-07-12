@@ -114,6 +114,8 @@ mod ScopeGraph.Sanitizer {
                 exps |> forEach(sanitizeExp)
             case Ast.Exp.Name(name) =>
                 sanitizeName(name)
+            case Ast.Exp.Int(_) =>
+                ()
         }
     }
 

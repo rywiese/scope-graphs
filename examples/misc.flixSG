@@ -21,7 +21,7 @@ pub mod List {
 
     pub def toString(l: List[Q.T]): String = {
         let something = Nil;
-        Http.ping(something);
+        Http.ping(42);
         baseToString(something)
     }
 

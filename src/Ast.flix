@@ -106,6 +106,7 @@ mod ScopeGraph.Ast {
         case Stmt(Exp, Exp)
         case App(Exp, List[Exp])
         case Name(Name)
+        case Int(Int32)
     }
 
     pub enum Access with Eq, ToString {

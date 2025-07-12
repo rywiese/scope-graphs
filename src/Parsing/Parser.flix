@@ -222,6 +222,13 @@ mod ScopeGraph.Parser {
             sc !> parseWsAny |> parseChar(';');
             let body = sc |> parseExp;
             Ast.Exp.Let(name, binding, body)
+        } else if (sc |> peek |> Char.isDigit) {
+            let loc = sc |> getLoc;
+            let digits = sc |> advanceWhileAndCollect(Char.isDigit);
+            match Int32.fromString(digits) {
+                case Some(i) => Ast.Exp.Int(i)
+                case None => errWithLoc("Malformed number", loc)
+            }
         } else {
             let name = sc !> parseWsAny |> parseName;
             Ast.Exp.Name(name)
@@ -400,6 +407,10 @@ mod ScopeGraph.Parser {
 
     def err(msg: String, sc: SC[r]): t \ r + Error = {
         let loc = "${sc |> getLine + 1}:${sc |> getColumn + 1}";
+        Error.error("${msg} (${loc})")
+    }
+
+    def errWithLoc(msg: String, loc: Loc.Loc): t \ Error = {
         Error.error("${msg} (${loc})")
     }
 }
