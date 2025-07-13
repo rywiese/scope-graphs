@@ -14,3 +14,17 @@ See [Examples](examples/) for a view of the language.
 - [Lexer](src/Phase/Lexer.flix) tokenizes strings (`String -> Vector[Token]`).
 - [Parser](src/Phase/Parser.flix) parses tokens (`Vector[Token] -> ParsedAst.Scope`).
 - [Sanitizer](src/Phase/Sanitizer.flix) sanitizes the parsed output (`ParsedAst.Scope -> Unit`).
+
+## Using the vsix extension
+```
+flix> :fatjar
+```
+install the `.vsix` extension
+
+## Build Extension
+```
+cd extension/flixsg
+npm install
+vsce package
+```
+and then copy the .vsix file down

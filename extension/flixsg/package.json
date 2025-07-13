@@ -1,0 +1,30 @@
+{
+  "name": "flixsg",
+  "displayName": "flixsg",
+  "description": "scope graphs for Flix",
+  "version": "0.0.1",
+  "repository": "https://github.com/JonathanStarup/scope-graphs/",
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "flixsg",
+      "aliases": ["flixsg"],
+      "extensions": [".flixsg"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "flixsg",
+      "scopeName": "source.flixsg",
+      "path": "./syntaxes/flixsg.tmLanguage.json"
+    }]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}
