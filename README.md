@@ -1,5 +1,7 @@
 # scope-graphs
 
+<!-- Requires the jar of https://github.com/flix/flix/actions/runs/16250297056 -->
+
 Use [Main](src/Main.flix) to `compile` and `compileFile` to run all phases.
 
 See [Examples](examples/) for a view of the language.

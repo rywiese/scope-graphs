@@ -1,6 +1,18 @@
-def main(): Unit \ IO = {
-    ScopeGraph.compileUnsafe("./examples/misc.txt")
-}
+def main(): Unit \ IO + Sys = run {
+    match Environment.getArgs() {
+        case "lsp" :: Nil => ScopeGraph.Lsp.runServer()
+        case "example" :: Nil => ScopeGraph.compileUnsafe("./examples/misc.txt")
+        case "run" :: path :: Nil => ScopeGraph.compileUnsafe(path)
+        case _ =>
+            let options = List#{
+                ("lsp", "starts LSP server"),
+                ("example", "analyses ./examples/misc.txt"),
+                ("run <path>", "compiles the file located at <path>")
+            };
+            let lines = options |> List.map(match (name, descr) -> "  [${name}] ${descr}") |> List.join("\n");
+            println("usage:\n${lines}")
+    }
+} with Environment.runWithIO
 
 mod ScopeGraph {
     use ScopeGraph.Ast
