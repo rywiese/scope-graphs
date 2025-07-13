@@ -9,21 +9,27 @@ mod ScopeGraph.Lsp {
 }
 
 mod ScopeGraph.Lsp.Server {
-    import org.eclipse.lsp4j.DefinitionParams
-    import java.lang.Boolean
-    import org.eclipse.lsp4j.DocumentLinkParams
-    import java.util.ArrayList
-    import org.eclipse.lsp4j.DocumentHighlightParams
+    use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Ast.Shared.Location
+
     import java.lang.{Object => JObject}
+    import java.lang.Boolean
+    import java.lang.System
+    import java.util.ArrayList
     import java.util.concurrent.CompletableFuture
     import java.util.function.Supplier
-    import java.lang.System
+    import org.eclipse.lsp4j.{Location => JLocation}
+    import org.eclipse.lsp4j.{Position => JPosition}
+    import org.eclipse.lsp4j.{Range => JRange}
+    import org.eclipse.lsp4j.DefinitionParams
     import org.eclipse.lsp4j.DidChangeConfigurationParams
     import org.eclipse.lsp4j.DidChangeTextDocumentParams
     import org.eclipse.lsp4j.DidChangeWatchedFilesParams
     import org.eclipse.lsp4j.DidCloseTextDocumentParams
     import org.eclipse.lsp4j.DidOpenTextDocumentParams
     import org.eclipse.lsp4j.DidSaveTextDocumentParams
+    import org.eclipse.lsp4j.DocumentHighlightParams
+    import org.eclipse.lsp4j.DocumentLinkParams
     import org.eclipse.lsp4j.InitializeParams
     import org.eclipse.lsp4j.InitializeResult
     import org.eclipse.lsp4j.MessageParams
@@ -94,13 +100,31 @@ mod ScopeGraph.Lsp.Server {
                 System.err.println("documentHighlight");
                 CompletableFuture.completedFuture(new ArrayList())
             }
-            def definition(_this: TextDocumentService, _params: DefinitionParams): CompletableFuture \ IO = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO = {
                 System.err.println("definition");
-                // Dummy value
-                CompletableFuture.completedFuture(new ArrayList())
+                let uri = params.getTextDocument().getUri();
+
+                // Find the Binding location.
+                let zero = Location.mkLoc(line = 1, column = 1, 0);
+                let loc: LocRange = Location.mkLocRange(start = zero, zero);
+
+                // Return the location.
+                let list = new ArrayList();
+                list.add((checked_cast(loc |> locToJLoc(uri)): JObject));
+                CompletableFuture.completedFuture(list)
             }
 
         }
+    }
+
+    def locToJLoc(uri: String, loc: LocRange): JLocation \ IO = {
+        let {start, end} = coerce(loc);
+        // zero-based
+        let jStart = new JPosition(coerce(start)#line - 1, coerce(start)#column - 1);
+        let jEnd = new JPosition(coerce(end)#line - 1, coerce(end)#column - 1);
+        // exclusive?
+        let jRange = new JRange(jStart, jEnd);
+        new JLocation(uri, jRange)
     }
 
     def mkWorkspaceService(): WorkspaceService \ IO = {
