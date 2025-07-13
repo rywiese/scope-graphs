@@ -96,6 +96,7 @@ mod ScopeGraph.Lsp.Server {
             }
             def definition(_this: TextDocumentService, _params: DefinitionParams): CompletableFuture \ IO = {
                 System.err.println("definition");
+                // Dummy value
                 CompletableFuture.completedFuture(new ArrayList())
             }
 

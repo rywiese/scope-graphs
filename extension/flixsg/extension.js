@@ -42,7 +42,7 @@ function startServer() {
   });
 
   serverProcess.stderr.on('data', (data) => {
-    console.error(`[LSP ERR] ${data}`);
+    console.info(`[SG LSP] ${data}`);
   });
 
   const streamInfo = () => {
