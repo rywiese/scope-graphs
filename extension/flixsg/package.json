@@ -22,7 +22,13 @@
       "language": "flixsg",
       "scopeName": "source.flixsg",
       "path": "./syntaxes/flixsg.tmLanguage.json"
-    }]
+    }],
+    "commands": [
+      {
+        "command": "flixsg:stop",
+        "title": "flixsg: Stop Language Server"
+      }
+    ]
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"

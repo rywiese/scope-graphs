@@ -17,6 +17,7 @@ See [Examples](examples/) for a view of the language.
 
 ## Using the vsix extension
 ```
+flix> :build
 flix> :fatjar
 ```
 install the `.vsix` extension

@@ -8,6 +8,10 @@ const {
 
 let client;
 
+let clientOptions;
+let workspacePath;
+let jarPath;
+
 function activate(context) {
   const workspaceFolders = vscode.workspace.workspaceFolders;
 
@@ -16,35 +20,39 @@ function activate(context) {
     return;
   }
 
-  const workspacePath = workspaceFolders[0].uri.fsPath;
+  workspacePath = workspaceFolders[0].uri.fsPath;
 
   // Construct full path to the JAR inside the user's project
-  const jarPath = path.join(workspacePath, 'artifact', 'scope-graphs.jar');
+  jarPath = path.join(workspacePath, 'artifact', 'scope-graphs.jar');
 
+  startServer();
+
+  const stopCommand = vscode.commands.registerCommand('flixsg:stop', () => stopServer())
+  context.subscriptions.push(stopCommand);
+}
+
+function startServer() {
   if (!fs.existsSync(jarPath)) {
     vscode.window.showErrorMessage(`Flixsg: Language server not found at ${jarPath}`);
     return;
   }
 
-  const serverCommand = 'java';
-  const serverArgs = ['-jar', jarPath, 'lsp'];
-
-  const serverProcess = cp.spawn(serverCommand, serverArgs, {
+  const serverProcess = cp.spawn('java', ['-jar', jarPath, 'lsp'], {
     cwd: workspacePath
   });
 
   serverProcess.stderr.on('data', (data) => {
-    console.error(`[LSP STDERR] ${data}`);
+    console.error(`[LSP ERR] ${data}`);
   });
 
   const streamInfo = () => {
     return Promise.resolve({
-    writer: serverProcess.stdin,
-    reader: serverProcess.stdout
+      writer: serverProcess.stdin,
+      reader: serverProcess.stdout
     })
   };
 
-  const clientOptions = {
+  clientOptions = {
     documentSelector: [{ scheme: 'file', language: 'flixsg' }],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.flixsg')
@@ -58,7 +66,11 @@ function activate(context) {
     clientOptions
   );
 
-  client.start();
+  return client.start();
+}
+
+function stopServer() {
+  client.stop()
 }
 
 function deactivate() {
