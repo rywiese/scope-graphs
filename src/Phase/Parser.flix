@@ -10,6 +10,7 @@ mod ScopeGraph.Phase.Parser {
     use ScopeGraph.Ast.Shared.Crash
     use ScopeGraph.Ast.Shared.Error
     use ScopeGraph.Ast.Shared.Location.LocString
+    use ScopeGraph.Ast.Shared.Location.Located
     use ScopeGraph.Util.{VectorCursor => VC}
     use ScopeGraph.Phase.Parser.{TokenCursor => TC}
 
@@ -218,7 +219,7 @@ mod ScopeGraph.Phase.Parser {
             case None => tc |> errExpect(expected = "expression", "EOF", tc |> latestLoc)
         };
         match peeked {
-            case Token.Name(tokenName, _) =>
+            case Token.Name(tokenName, nameLoc) =>
                 match tokenName {
                     case "let" =>
                         tc |> VC.advance;
@@ -227,19 +228,22 @@ mod ScopeGraph.Phase.Parser {
                         let binding = tc |> parseExp;
                         tc !> parseWsAny |> parseToken(TokenKind.Semicolon);
                         let body = tc |> parseExp;
-                        (ParsedAst.Exp.Let(name, binding, body), true)
+                        let loc = Location.union(nameLoc, body |> Located.getLoc);
+                        (ParsedAst.Exp.Let(name, binding, body, loc), true)
                     case "true" =>
                         tc |> VC.advance;
-                        (ParsedAst.Exp.Bool(true), false)
+                        (ParsedAst.Exp.Bool(true, nameLoc), false)
                     case "false" =>
                         tc |> VC.advance;
-                        (ParsedAst.Exp.Bool(false), false)
+                        (ParsedAst.Exp.Bool(false, nameLoc), false)
                     case _ =>
-                        (tc |> parseName |> ParsedAst.Exp.Name, false)
+                        let name = tc |> parseName;
+                        let loc = Location.union(nameLoc, name |> Located.getLoc);
+                        (ParsedAst.Exp.Name(name, loc), false)
                 }
-            case Token.Int(i, _) =>
+            case Token.Int(i, loc) =>
                 tc |> VC.advance;
-                (ParsedAst.Exp.Int(i), false)
+                (ParsedAst.Exp.Int(i, loc), false)
             case Token.ParenCurlyLeft(_) =>
                 tc |> VC.advance;
                 let exp = tc |> parseExp;
@@ -256,14 +260,18 @@ mod ScopeGraph.Phase.Parser {
         if (stop) exp
         else if (tc |> parseTokenOpt(TokenKind.ParenSoftLeft)) {
             if (tc !> parseWsAny |> parseTokenOpt(TokenKind.ParenSoftRight)) {
-                ParsedAst.Exp.App(exp, Nil)
+                ParsedAst.Exp.App(exp, Nil, exp |> Located.getLoc)
             } else {
                 let args = tc |> parseCommaSeq(parseExp);
                 tc !> parseWsAny |> parseToken(TokenKind.ParenSoftRight);
-                ParsedAst.Exp.App(exp, args)
+                let last = args |> List.head |> Option.getWithDefault(exp);
+                let loc = Location.union(exp |> Located.getLoc, last |> Located.getLoc);
+                ParsedAst.Exp.App(exp, args, loc)
             }
         } else if (tc !> parseWsAny |> parseTokenOpt(TokenKind.Semicolon)) {
-            ParsedAst.Exp.Stmt(exp, tc |> parseExp)
+            let tail = tc |> parseExp;
+            let loc = Location.union(exp |> Located.getLoc, tail |> Located.getLoc);
+            ParsedAst.Exp.Stmt(exp, tail, loc)
         } else {
             exp
         }
@@ -417,6 +425,6 @@ mod ScopeGraph.Phase.Parser {
         err("Found ${found}, expected ${expected#expected}", loc)
 
     def err(msg: String, loc: Location.LocRange): t \ Crash = {
-        Crash.crash(Error.mkError(category = "Parser", msg, coerce(loc)#start))
+        Crash.crash(Error.mkError(category = "Parser", msg, loc))
     }
 }

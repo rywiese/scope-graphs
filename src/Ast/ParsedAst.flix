@@ -1,5 +1,8 @@
 mod ScopeGraph.Ast.ParsedAst {
+    use ScopeGraph.Ast.Shared.Location.Located
     use ScopeGraph.Ast.Shared.Location.LocString
+    use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Ast.Shared.Location
 
     pub enum Scope({
         uses = List[Use],
@@ -50,12 +53,12 @@ mod ScopeGraph.Ast.ParsedAst {
     })
 
     pub enum Exp {
-        case Let(LocString, Exp, Exp)
-        case Stmt(Exp, Exp)
-        case App(Exp, List[Exp])
-        case Name(Name)
-        case Int(Int32)
-        case Bool(Bool)
+        case Let(LocString, Exp, Exp, LocRange)
+        case Stmt(Exp, Exp, LocRange)
+        case App(Exp, List[Exp], LocRange)
+        case Name(Name, LocRange)
+        case Int(Int32, LocRange)
+        case Bool(Bool, LocRange)
     }
 
     pub enum Access with Eq, ToString {
@@ -65,7 +68,8 @@ mod ScopeGraph.Ast.ParsedAst {
 
     pub enum Name({
         qualifiers = List[LocString],
-        name = LocString
+        name = LocString,
+        loc = LocRange
     })
 
     pub enum Tpe {
@@ -132,8 +136,11 @@ mod ScopeGraph.Ast.ParsedAst {
     ): Def =
         Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})
 
-    pub def mkName(qualifiers: List[LocString], name: LocString): Name =
-        Name.Name({qualifiers = qualifiers, name = name})
+    pub def mkName(qualifiers: List[LocString], name: LocString): Name = {
+        let first = qualifiers |> List.head |> Option.getWithDefault(name);
+        let loc = Location.union(first |> Located.getLoc, name |> Located.getLoc);
+        Name.Name({qualifiers = qualifiers, name = name, loc = loc})
+    }
 
 
 
@@ -147,11 +154,40 @@ mod ScopeGraph.Ast.ParsedAst {
 
 
 
+    instance Coerce[Scope] {
+        type Out = {
+            uses = List[Use],
+            modules = List[Module],
+            aliases = List[TypeAlias],
+            enums = List[Enum],
+            defs = List[Def]
+        }
+
+        pub def coerce(x: Scope): {
+            uses = List[Use],
+            modules = List[Module],
+            aliases = List[TypeAlias],
+            enums = List[Enum],
+            defs = List[Def]
+        } = {
+            let Scope.Scope(r) = x;
+            r
+        }
+    }
+
+    instance Coerce[Module] {
+        type Out = {ac = Access, name = Name, scope = Scope}
+
+        pub def coerce(x: Module): {ac = Access, name = Name, scope = Scope} = {
+            let Module.Module(r) = x;
+            r
+        }
+    }
 
     instance Coerce[Name] {
-        type Out = {qualifiers = List[LocString], name = LocString}
+        type Out = {qualifiers = List[LocString], name = LocString, loc = LocRange}
 
-        pub def coerce(x: Name): {qualifiers = List[LocString], name = LocString} = {
+        pub def coerce(x: Name): {qualifiers = List[LocString], name = LocString, loc = LocRange} = {
             let Name.Name(r) = x;
             r
         }
@@ -159,11 +195,17 @@ mod ScopeGraph.Ast.ParsedAst {
 
     instance Eq[Name] {
         pub def eq(x: Name, y: Name): Bool = {
-            let {qualifiers = qualifiersX, name = nameX} = coerce(x);
-            let {qualifiers = qualifiersY, name = nameY} = coerce(y);
+            let {qualifiers = qualifiersX, name = nameX, loc = _} = coerce(x);
+            let {qualifiers = qualifiersY, name = nameY, loc = _} = coerce(y);
             qualifiersX == qualifiersY and nameX == nameY
         }
     }
+
+    instance Located[Name] {
+        pub def getLoc(x: Name): LocRange =
+            coerce(x)#loc
+    }
+
 
     instance ToString[Name] {
         pub def toString(x: Name): String =
@@ -172,7 +214,7 @@ mod ScopeGraph.Ast.ParsedAst {
 
     mod Name {
         pub def toString(n: Name): String = {
-            let {qualifiers, name} = coerce(n);
+            let {qualifiers, name, loc = _} = coerce(n);
             List.join(".", qualifiers `List.append` List#{name})
         }
     }
@@ -237,34 +279,24 @@ mod ScopeGraph.Ast.ParsedAst {
         }
     }
 
-    instance Coerce[Scope] {
-        type Out = {
-            uses = List[Use],
-            modules = List[Module],
-            aliases = List[TypeAlias],
-            enums = List[Enum],
-            defs = List[Def]
-        }
+    mod Exp {
+        use ScopeGraph.Ast.Shared.Location.LocRange
 
-        pub def coerce(x: Scope): {
-            uses = List[Use],
-            modules = List[Module],
-            aliases = List[TypeAlias],
-            enums = List[Enum],
-            defs = List[Def]
-        } = {
-            let Scope.Scope(r) = x;
-            r
+        pub def getLoc(exp: Exp): LocRange = match exp {
+            case Let(_, _, _, loc) => loc
+            case Stmt(_, _, loc) => loc
+            case App(_, _, loc) => loc
+            case Name(_, loc) => loc
+            case Int(_, loc) => loc
+            case Bool(_, loc) => loc
         }
     }
 
-    instance Coerce[Module] {
-        type Out = {ac = Access, name = Name, scope = Scope}
-
-        pub def coerce(x: Module): {ac = Access, name = Name, scope = Scope} = {
-            let Module.Module(r) = x;
-            r
-        }
+    instance Located[Exp] {
+        pub def getLoc(x: Exp): LocRange =
+            Exp.getLoc(x)
     }
+
+
 
 }

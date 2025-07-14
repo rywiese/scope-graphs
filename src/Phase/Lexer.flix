@@ -11,7 +11,7 @@ mod ScopeGraph.Phase.Lexer {
     use ScopeGraph.Util.{StringCursor => SC}
 
     def err(msg: String, loc: Loc): t \ Crash =
-        Crash.crash(Error.mkError(category = "Lexer", msg, loc))
+        Crash.crash(Error.mkPointError(category = "Lexer", msg, loc))
 
     pub def lex(s: String): Vector[Token] \ Crash = region rc {
         s |> SC.mk(rc) |> lexCursor

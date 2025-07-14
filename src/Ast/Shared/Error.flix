@@ -1,17 +1,22 @@
 mod ScopeGraph.Ast.Shared {
+    use Location.LocRange
     use Location.Loc
 
     pub enum Error({
         category = String,
         msg = String,
-        loc = Option[Loc]
+        loc = Option[LocRange]
     })
 
     mod Error {
         use ScopeGraph.Ast.Shared.Location.Loc
+        use ScopeGraph.Ast.Shared.Location.LocRange
 
-        pub def mkError(category: {category = String}, msg: String, loc: Loc): Error =
+        pub def mkError(category: {category = String}, msg: String, loc: LocRange): Error =
             Error({category = category#category, msg = msg, loc = Some(loc)})
+
+        pub def mkPointError(category: {category = String}, msg: String, loc: Loc): Error =
+            Error({category = category#category, msg = msg, loc = Some(loc |> Loc.point)})
 
         pub def mkUnknownError(category: {category = String}, msg: String): Error =
             Error({category = category#category, msg = msg, loc = None})
@@ -35,9 +40,9 @@ mod ScopeGraph.Ast.Shared {
     }
 
     instance Coerce[Error] {
-        type Out = {category = String, msg = String, loc = Option[Loc]}
+        type Out = {category = String, msg = String, loc = Option[LocRange]}
 
-        pub def coerce(x: Error): {category = String, msg = String, loc = Option[Loc]} = {
+        pub def coerce(x: Error): {category = String, msg = String, loc = Option[LocRange]} = {
             let Error.Error(r) = x;
             r
         }

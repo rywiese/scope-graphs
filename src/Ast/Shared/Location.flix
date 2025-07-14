@@ -1,4 +1,9 @@
 mod ScopeGraph.Ast.Shared.Location {
+    use ScopeGraph.Ast.Shared.Location.Located
+
+    pub trait Located[t] {
+        pub def getLoc(x: t): LocRange
+    }
 
     pub def mkLoc(line: {line = Int32}, column: {column = Int32}, index: Int32): Loc =
         Loc.Loc({line = line#line, column = column#column, index = index})
@@ -34,8 +39,34 @@ mod ScopeGraph.Ast.Shared.Location {
         }
     }
 
+    mod Loc {
+        use ScopeGraph.Ast.Shared.Location.LocRange
+        use ScopeGraph.Ast.Shared.Location
+
+        pub def point(l: Loc): LocRange = {
+            let {line, column, index} = coerce(l);
+            let end = Location.mkLoc(line = line, column = column, index);
+            Location.mkLocRange(start = l, end)
+        }
+    }
+
     pub def mkLocRange(start: {start = Loc}, end: Loc): LocRange =
         LocRange.LocRange({start = start#start, end = end})
+
+    /// Returns the smallest range containing both.
+    pub def union(x: LocRange, y: LocRange): LocRange = {
+        let {start = startX, end = endX} = coerce(x);
+        let {start = startY, end = endY} = coerce(y);
+        let start = if (startX <= startY) startX else startY;
+        let end = if (endX <= endY) endY else endX;
+        mkLocRange(start = start, end)
+    }
+
+    pub def unionAll(l: LocRange, ls: it): LocRange \ Iterable.Aef[it] with Iterable[it] where Iterable.Elm[it] ~ LocRange = {
+        region rc {
+            (l, Iterable.iterator(rc, ls)) ||> Iterator.foldLeft(union)
+        }
+    }
 
     /// Start is inclusive, end is exclusive.
     pub enum LocRange({start = Loc, end = Loc})
@@ -64,6 +95,11 @@ mod ScopeGraph.Ast.Shared.Location {
         }
     }
 
+    instance Located[LocRange] {
+        pub def getLoc(x: LocRange): LocRange =
+            x
+    }
+
     mod LocRange {
         /// Returns true if x is before y and doesn't overlap.
         pub def isBefore(x: LocRange, y: LocRange): Bool = {
@@ -89,6 +125,11 @@ mod ScopeGraph.Ast.Shared.Location {
         }
     }
 
+    instance Located[LocString] {
+        pub def getLoc(x: LocString): LocRange =
+            LocString.getLoc(x)
+    }
+
     instance Eq[LocString] {
         pub def eq(x: LocString, y: LocString): Bool =
             coerce(x)#s == coerce(y)#s
@@ -104,6 +145,8 @@ mod ScopeGraph.Ast.Shared.Location {
     }
 
     mod LocString {
+        use ScopeGraph.Ast.Shared.Location.LocRange
+
         pub def getString(s: LocString): String =
             coerce(s)#s
 
@@ -120,6 +163,10 @@ mod ScopeGraph.Ast.Shared.Location {
                 case None => false
             }
         }
+
+        pub def getLoc(x: LocString): LocRange =
+            coerce(x)#loc
+
     }
 
 }

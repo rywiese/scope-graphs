@@ -1,4 +1,6 @@
 mod ScopeGraph.Phase.Sanitizer {
+    use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Ast.Shared.Location.Located
     use Foldable.forEach
     use ScopeGraph.Ast.ParsedAst
     use ScopeGraph.Ast.Shared.Location
@@ -41,7 +43,7 @@ mod ScopeGraph.Phase.Sanitizer {
     }
 
     def sanitizeName(n: ParsedAst.Name): Unit \ Crash = {
-        let {qualifiers, name = _} = coerce(n);
+        let {qualifiers, name = _, loc = _} = coerce(n);
         foreach (word <- qualifiers) assertUpper("Qualifiers must be upper case", word)
     }
 
@@ -100,21 +102,21 @@ mod ScopeGraph.Phase.Sanitizer {
 
     def sanitizeExp(exp0: ParsedAst.Exp): Unit \ Crash = {
         match exp0 {
-            case ParsedAst.Exp.Let(name, exp1, exp2) =>
+            case ParsedAst.Exp.Let(name, exp1, exp2, _) =>
                 assertLower("let-binders must be lower case", name);
                 sanitizeExp(exp1);
                 sanitizeExp(exp2)
-            case ParsedAst.Exp.Stmt(exp1, exp2) =>
+            case ParsedAst.Exp.Stmt(exp1, exp2, _) =>
                 sanitizeExp(exp1);
                 sanitizeExp(exp2)
-            case ParsedAst.Exp.App(exp, exps) =>
+            case ParsedAst.Exp.App(exp, exps, _) =>
                 sanitizeExp(exp);
                 exps |> forEach(sanitizeExp)
-            case ParsedAst.Exp.Name(name) =>
+            case ParsedAst.Exp.Name(name, _) =>
                 sanitizeName(name)
-            case ParsedAst.Exp.Int(_) =>
+            case ParsedAst.Exp.Int(_, _) =>
                 ()
-            case ParsedAst.Exp.Bool(_) =>
+            case ParsedAst.Exp.Bool(_, _) =>
                 ()
         }
     }
@@ -123,17 +125,17 @@ mod ScopeGraph.Phase.Sanitizer {
         assertUpper(msg, coerce(name)#name)
 
     def assertUpper(msg: String, s: LocString): Unit \ Crash = {
-        if (not LocString.isUpperCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
+        if (not LocString.isUpperCase(s)) err("${msg}: '${s}'", s |> Located.getLoc)
         else ()
     }
 
     def assertLower(msg: String, s: LocString): Unit \ Crash = {
-        if (not LocString.isLowerCase(s)) err("${msg}: '${s}'", coerce(s)#loc)
+        if (not LocString.isLowerCase(s)) err("${msg}: '${s}'", s |> Located.getLoc)
         else ()
     }
 
-    def err(msg: String, loc: Location.LocRange): Unit \ Crash = {
-        Crash.crash(Error.mkError(category = "Sanitizer", msg, coerce(loc)#start))
+    def err(msg: String, loc: LocRange): Unit \ Crash = {
+        Crash.crash(Error.mkError(category = "Sanitizer", msg, loc))
     }
 
 }
