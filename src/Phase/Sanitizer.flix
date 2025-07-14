@@ -55,7 +55,7 @@ mod ScopeGraph.Phase.Sanitizer {
     }
 
     def sanitizeAlias(ta: ParsedAst.TypeAlias): Unit \ Crash = {
-        let {ac = _, name, args, tpe} = coerce(ta);
+        let {ac = _, name, args, tpe, loc = _} = coerce(ta);
         assertUpper("Type aliases must be upper case", name);
         sanitizeTypeParams(args);
         sanitizeTpe(tpe)
@@ -66,11 +66,11 @@ mod ScopeGraph.Phase.Sanitizer {
 
     def sanitizeTpe(tpe: ParsedAst.Tpe): Unit \ Crash = {
         match tpe {
-            case ParsedAst.Tpe.Base(base) =>
+            case ParsedAst.Tpe.Base(base, _) =>
                 sanitizeName(base);
                 if (coerce(base)#qualifiers |> List.isEmpty) ()
                 else assertUpperName("Qualified Types must be upper case", base)
-            case ParsedAst.Tpe.App(base, ts) =>
+            case ParsedAst.Tpe.App(base, ts, _) =>
                 sanitizeTpe(base);
                 foreach (t <- ts) sanitizeTpe(t)
         }

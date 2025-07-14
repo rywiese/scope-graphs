@@ -46,7 +46,7 @@ mod ScopeGraph.Phase.Parser {
                 uses |> MutList.push(u);
                 Ref.put(true, progress)
             });
-            tc !> parseWsAny |> parseTypeAlias(ac) |> forEach(ta -> {
+            tc !> parseWsAny |> parseTypeAlias(ac, acLoc) |> forEach(ta -> {
                 aliases |> MutList.push(ta);
                 Ref.put(true, progress)
             });
@@ -103,8 +103,9 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "type " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseTypeAlias(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.TypeAlias] \ r + Crash = {
-        if (tc |> parseKeywordBool("type")) {
+    def parseTypeAlias(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.TypeAlias] \ r + Crash = {
+        tc |> parseKeywordOpt("type") |> map(typeLoc -> {
+            let startLoc = acLoc |> Option.getWithDefault(typeLoc);
             tc !> parseWsAny |> parseKeyword("alias");
             let name = tc !> parseWsAny |> parseWord;
             let args = if (tc |> parseTokenOpt(TokenKind.ParenSquareLeft)) {
@@ -114,10 +115,9 @@ mod ScopeGraph.Phase.Parser {
             } else Nil;
             tc |> parseToken(TokenKind.Eq);
             let tpe = tc |> parseType;
-            Some(ParsedAst.mkTypeAlias(ac, name, args, tpe))
-        } else {
-            None
-        }
+            let loc = Location.union(startLoc, tpe |> Located.getLoc);
+            ParsedAst.mkTypeAlias(ac, name, args, tpe, loc)
+        })
     }
 
     ///
@@ -166,11 +166,16 @@ mod ScopeGraph.Phase.Parser {
 
     /// Handles prefix space.
     def parseType(tc: TC[r]): ParsedAst.Tpe \ r + Crash = {
-        let base = ParsedAst.Tpe.Base(tc !> parseWsAny |> parseName);
+        let name = tc !> parseWsAny |> parseName;
+        let base = ParsedAst.Tpe.Base(name, name |> Located.getLoc);
         if (tc |> parseTokenOpt(TokenKind.ParenSquareLeft)) {
             let args = tc |> parseCommaSeq(parseType);
             tc |> parseTokenHint(TokenKind.ParenSquareRight, List#{"letter"});
-            ParsedAst.Tpe.App(base, args)
+            let lastLoc = args |>
+                List.last |>
+                map(Located.getLoc) |>
+                Option.getWithDefault(base |> Located.getLoc);
+            ParsedAst.Tpe.App(base, args, lastLoc)
         } else {
             base
         }
@@ -265,7 +270,7 @@ mod ScopeGraph.Phase.Parser {
             } else {
                 let args = tc |> parseCommaSeq(parseExp);
                 tc !> parseWsAny |> parseToken(TokenKind.ParenSoftRight);
-                let last = args |> List.head |> Option.getWithDefault(exp);
+                let last = args |> List.last |> Option.getWithDefault(exp);
                 let loc = Location.union(exp |> Located.getLoc, last |> Located.getLoc);
                 ParsedAst.Exp.App(exp, args, loc)
             }

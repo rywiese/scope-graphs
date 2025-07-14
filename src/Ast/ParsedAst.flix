@@ -29,7 +29,8 @@ mod ScopeGraph.Ast.ParsedAst {
         ac = Access,
         name = LocString,
         args = List[LocString],
-        tpe = Tpe
+        tpe = Tpe,
+        loc = LocRange
     })
 
     pub enum Enum({
@@ -74,8 +75,8 @@ mod ScopeGraph.Ast.ParsedAst {
     })
 
     pub enum Tpe {
-        case Base(Name)
-        case App(Tpe, List[Tpe])
+        case Base(Name, LocRange)
+        case App(Tpe, List[Tpe], LocRange)
     }
 
 
@@ -113,9 +114,10 @@ mod ScopeGraph.Ast.ParsedAst {
         ac: Access,
         name: LocString,
         args: List[LocString],
-        tpe: Tpe
+        tpe: Tpe,
+        loc: LocRange
     ): TypeAlias =
-        TypeAlias.TypeAlias({ac = ac, name = name, args = args, tpe = tpe})
+        TypeAlias.TypeAlias({ac = ac, name = name, args = args, tpe = tpe, loc = loc})
 
     pub def mkEnum(
         ac: Access,
@@ -235,13 +237,20 @@ mod ScopeGraph.Ast.ParsedAst {
     }
 
     instance Coerce[TypeAlias] {
-        type Out = {ac = Access, name = LocString, args = List[LocString], tpe = Tpe}
+        type Out = {
+            ac = Access,
+            name = LocString,
+            args = List[LocString],
+            tpe = Tpe,
+            loc = LocRange
+        }
 
         pub def coerce(x: TypeAlias): {
             ac = Access,
             name = LocString,
             args = List[LocString],
-            tpe = Tpe
+            tpe = Tpe,
+            loc = LocRange
         } = {
             let TypeAlias.TypeAlias(r) = x;
             r
@@ -303,6 +312,18 @@ mod ScopeGraph.Ast.ParsedAst {
             Exp.getLoc(x)
     }
 
+    mod Tpe {
+        use ScopeGraph.Ast.Shared.Location.LocRange
 
+        pub def getLoc(t: Tpe): LocRange = match t {
+            case Base(_, loc) => loc
+            case App(_, _, loc) => loc
+        }
+    }
+
+    instance Located[Tpe] {
+        pub def getLoc(x: Tpe): LocRange =
+            Tpe.getLoc(x)
+    }
 
 }
