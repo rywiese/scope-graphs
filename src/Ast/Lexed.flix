@@ -4,6 +4,7 @@ mod ScopeGraph.Ast {
     type alias Lexed = Vector[Token]
 
     mod Lexed {
+        use ScopeGraph.Ast.Shared.Location.Located
         use ScopeGraph.Ast.Shared.Location.LocRange
 
         pub enum Token {
@@ -138,6 +139,12 @@ mod ScopeGraph.Ast {
             pub def toString(x: Token): String =
                 Token.toString(x)
         }
+
+        instance Located[Token] {
+            pub def getLoc(x: Token): LocRange =
+                Token.getLoc(x)
+        }
+
 
     }
 

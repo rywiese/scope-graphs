@@ -90,7 +90,7 @@ mod ScopeGraph.Phase.Sanitizer {
     }
 
     def sanitizeDef(m: ParsedAst.Def): Unit \ Crash = {
-        let {ac = _, name, args, tpe, exp} = coerce(m);
+        let {ac = _, name, args, tpe, exp, loc = _} = coerce(m);
         assertLower("defs must be lower case", name);
         foreach ((argName, argTpe) <- args) {
             assertLower("Parameters must be lower case", argName);

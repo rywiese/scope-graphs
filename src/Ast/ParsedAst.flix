@@ -51,7 +51,8 @@ mod ScopeGraph.Ast.ParsedAst {
         name = LocString,
         args = List[(LocString, Tpe)],
         tpe = Tpe,
-        exp = Exp
+        exp = Exp,
+        loc = LocRange
     })
 
     pub enum Exp {
@@ -135,9 +136,10 @@ mod ScopeGraph.Ast.ParsedAst {
         name: LocString,
         args: List[(LocString, Tpe)],
         tpe: Tpe,
-        exp: Exp
+        exp: Exp,
+        loc: LocRange
     ): Def =
-        Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp})
+        Def.Def({ac = ac, name = name, args = args, tpe = tpe, exp = exp, loc = loc})
 
     pub def mkName(qualifiers: List[LocString], name: LocString): Name = {
         let first = qualifiers |> List.head |> Option.getWithDefault(name);
@@ -286,13 +288,33 @@ mod ScopeGraph.Ast.ParsedAst {
     }
 
     instance Coerce[Def] {
-        type Out = {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe, exp = Exp}
+        type Out = {
+            ac = Access,
+            name = LocString,
+            args = List[(LocString, Tpe)],
+            tpe = Tpe,
+            exp = Exp,
+            loc = LocRange
+        }
 
-        pub def coerce(x: Def): {ac = Access, name = LocString, args = List[(LocString, Tpe)], tpe = Tpe, exp = Exp} = {
+        pub def coerce(x: Def): {
+            ac = Access,
+            name = LocString,
+            args = List[(LocString, Tpe)],
+            tpe = Tpe,
+            exp = Exp,
+            loc = LocRange
+        } = {
             let Def.Def(r) = x;
             r
         }
     }
+
+    instance Located[Def] {
+        pub def getLoc(x: Def): LocRange =
+            coerce(x)#loc
+    }
+
 
     mod Exp {
         use ScopeGraph.Ast.Shared.Location.LocRange
