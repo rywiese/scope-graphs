@@ -37,12 +37,12 @@ mod ScopeGraph.Phase.Parser {
         let progress = Ref.fresh(rc, true);
         def loop() = {
             Ref.put(false, progress);
-            let (ac, _) = tc |> parseAccess;
+            let (ac, acLoc) = tc |> parseAccess;
             tc !> parseWsAny |> parseModule(ac) |> forEach(m -> {
                 modules |> MutList.push(m);
                 Ref.put(true, progress)
             });
-            tc !> parseWsAny |> parseUse(ac) |> forEach(u -> {
+            tc !> parseWsAny |> parseUse(ac, acLoc) |> forEach(u -> {
                 uses |> MutList.push(u);
                 Ref.put(true, progress)
             });
@@ -75,12 +75,11 @@ mod ScopeGraph.Phase.Parser {
     /// Returns (_, true) if any non-space input was consumed.
     ///
     /// Handles prefix space.
-    def parseAccess(tc: TC[r]): (ParsedAst.Access, Bool) \ r = {
+    def parseAccess(tc: TC[r]): (ParsedAst.Access, Option[LocRange]) \ r = {
         tc |> parseWsAny;
-        if (tc |> parseKeywordBool("pub")) {
-            (ParsedAst.Access.Public, true)
-        } else {
-            (ParsedAst.Access.Private, false)
+        match tc |> parseKeywordOpt("pub") {
+            case Some(loc) => (ParsedAst.Access.Public, Some(loc))
+            case None => (ParsedAst.Access.Private, None)
         }
     }
 
@@ -147,7 +146,8 @@ mod ScopeGraph.Phase.Parser {
     ///
     /// Handles prefix space.
     def parseEnumCase(tc: TC[r]): Option[ParsedAst.EnumCase] \ r + Crash = {
-        let (ac, lockedIn) = tc |> parseAccess;
+        let (ac, lockedInOpt) = tc |> parseAccess;
+        let lockedIn = not Option.isEmpty(lockedInOpt);
         tc |> parseWsAny;
         let skipCheck = if (lockedIn) {tc |> parseKeyword("case"); true} else false;
         if (skipCheck or tc |> parseKeywordBool("case")) {
@@ -282,8 +282,9 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "use " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseUse(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.Use] \ r + Crash = {
-        tc |> parseKeywordOpt("use") |> map(startLoc -> {
+    def parseUse(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.Use] \ r + Crash = {
+        tc |> parseKeywordOpt("use") |> map(useLoc -> {
+            let startLoc = acLoc |> Option.getWithDefault(useLoc);
             let name = tc !> parseWsAny |> parseName;
             tc |> parseWsAny;
             if (tc |> parseKeywordBool("as")) {
