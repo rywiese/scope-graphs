@@ -15,7 +15,8 @@ mod ScopeGraph.Ast.ParsedAst {
     pub enum Use({
         ac = Access,
         name = Name,
-        renaming = Option[LocString]
+        renaming = Option[LocString],
+        loc = LocRange
     })
 
     pub enum Module({
@@ -99,11 +100,11 @@ mod ScopeGraph.Ast.ParsedAst {
             defs = defs
         })
 
-    pub def mkUse(ac: Access, name: Name): Use =
-        Use.Use({ac = ac, name = name, renaming = None})
+    pub def mkUse(ac: Access, name: Name, loc: LocRange): Use =
+        Use.Use({ac = ac, name = name, renaming = None, loc = loc})
 
-    pub def mkRenamedUse(ac: Access, name: Name, renaming: LocString): Use =
-        Use.Use({ac = ac, name = name, renaming = Some(renaming)})
+    pub def mkRenamedUse(ac: Access, name: Name, renaming: LocString, loc: LocRange): Use =
+        Use.Use({ac = ac, name = name, renaming = Some(renaming), loc = loc})
 
     pub def mkModule(ac: Access, name: Name, scope: Scope): Module =
         Module.Module({ac = ac, name = name, scope = scope})
@@ -220,12 +221,17 @@ mod ScopeGraph.Ast.ParsedAst {
     }
 
     instance Coerce[Use] {
-        type Out = {ac = Access, name = Name, renaming = Option[LocString]}
+        type Out = {ac = Access, name = Name, renaming = Option[LocString], loc = LocRange}
 
-        pub def coerce(x: Use): {ac = Access, name = Name, renaming = Option[LocString]} = {
+        pub def coerce(x: Use): {ac = Access, name = Name, renaming = Option[LocString], loc = LocRange} = {
             let Use.Use(r) = x;
             r
         }
+    }
+
+    instance Located[Use] {
+        pub def getLoc(x: Use): LocRange =
+            coerce(x)#loc
     }
 
     instance Coerce[TypeAlias] {
