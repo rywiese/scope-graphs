@@ -24,7 +24,7 @@ mod ScopeGraph.Phase.Sanitizer {
     }
 
     def sanitizeUse(u: ParsedAst.Use): Unit \ Crash = {
-        let {ac = _, name, renaming = renamingOpt} = coerce(u);
+        let {ac = _, name, renaming = renamingOpt, loc = _} = coerce(u);
         sanitizeName(name);
         match renamingOpt {
             case None => ()

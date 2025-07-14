@@ -1,4 +1,5 @@
 mod ScopeGraph.Phase.Parser {
+    use ScopeGraph.Ast.Shared.Location.LocRange
     use Foldable.forEach
     use Functor.map
 
@@ -76,7 +77,7 @@ mod ScopeGraph.Phase.Parser {
     /// Handles prefix space.
     def parseAccess(tc: TC[r]): (ParsedAst.Access, Bool) \ r = {
         tc |> parseWsAny;
-        if (tc |> parseKeywordOpt("pub")) {
+        if (tc |> parseKeywordBool("pub")) {
             (ParsedAst.Access.Public, true)
         } else {
             (ParsedAst.Access.Private, false)
@@ -88,7 +89,7 @@ mod ScopeGraph.Phase.Parser {
     ///
     /// DOES NOT handle prefix space.
     def parseModule(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.Module] \ r + Crash = {
-        if (tc |> parseKeywordOpt("mod")) {
+        if (tc |> parseKeywordBool("mod")) {
             let name = tc !> parseWsAny |> parseName;
             tc |> parseToken(TokenKind.ParenCurlyLeft);
             let scope = tc |> parseScope;
@@ -104,7 +105,7 @@ mod ScopeGraph.Phase.Parser {
     ///
     /// DOES NOT handle prefix space.
     def parseTypeAlias(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.TypeAlias] \ r + Crash = {
-        if (tc |> parseKeywordOpt("type")) {
+        if (tc |> parseKeywordBool("type")) {
             tc !> parseWsAny |> parseKeyword("alias");
             let name = tc !> parseWsAny |> parseWord;
             let args = if (tc |> parseTokenOpt(TokenKind.ParenSquareLeft)) {
@@ -125,7 +126,7 @@ mod ScopeGraph.Phase.Parser {
     ///
     /// DOES NOT handle prefix space.
     def parseEnum(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.Enum] \ r + Crash = {
-        if (tc |> parseKeywordOpt("enum")) {
+        if (tc |> parseKeywordBool("enum")) {
             let name = tc !> parseWsAny |> parseWord;
             let args = if (tc |> parseTokenOpt(TokenKind.ParenSquareLeft)) {
                 let args1 = tc |> parseCommaSeq(parseWord);
@@ -149,7 +150,7 @@ mod ScopeGraph.Phase.Parser {
         let (ac, lockedIn) = tc |> parseAccess;
         tc |> parseWsAny;
         let skipCheck = if (lockedIn) {tc |> parseKeyword("case"); true} else false;
-        if (skipCheck or tc |> parseKeywordOpt("case")) {
+        if (skipCheck or tc |> parseKeywordBool("case")) {
             let name = tc !> parseWsAny |> parseWord;
             if (tc |> parseTokenOpt(TokenKind.ParenSoftLeft)) {
                 let types = tc |> parseCommaSeq(parseType);
@@ -180,7 +181,7 @@ mod ScopeGraph.Phase.Parser {
     ///
     /// DOES NOT handle prefix space.
     def parseDef(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.Def] \ r + Crash = {
-        if (tc |> parseKeywordOpt("def")) {
+        if (tc |> parseKeywordBool("def")) {
             let name = tc !> parseWsAny |> parseWord;
             let args = if (tc |> parseTokenOpt(TokenKind.ParenSoftLeft)) {
                 if (tc !> parseWsAny |> parseTokenOpt(TokenKind.ParenSoftRight)) {
@@ -282,18 +283,18 @@ mod ScopeGraph.Phase.Parser {
     ///
     /// DOES NOT handle prefix space.
     def parseUse(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.Use] \ r + Crash = {
-        if (tc |> parseKeywordOpt("use")) {
+        tc |> parseKeywordOpt("use") |> map(startLoc -> {
             let name = tc !> parseWsAny |> parseName;
             tc |> parseWsAny;
-            if (tc |> parseKeywordOpt("as")) {
+            if (tc |> parseKeywordBool("as")) {
                 let renaming = tc !> parseWsAny |> parseWord;
-                Some(ParsedAst.mkRenamedUse(ac, name, renaming))
+                let loc = Location.union(startLoc, renaming |> Located.getLoc);
+                ParsedAst.mkRenamedUse(ac, name, renaming, loc)
             } else {
-                Some(ParsedAst.mkUse(ac, name))
+                let loc = Location.union(startLoc, name |> Located.getLoc);
+                ParsedAst.mkUse(ac, name, loc)
             }
-        } else {
-            None
-        }
+        })
     }
 
     /// Handles prefix space.
@@ -342,16 +343,24 @@ mod ScopeGraph.Phase.Parser {
     }
 
     /// DOES NOT handle prefix space.
-    def parseKeywordOpt(kw: String, tc: TC[r]): Bool \ r = {
-        tc |> VC.advanceIf(token -> match token {
-            case Token.Name(name, _) if name == kw => true
-            case _ => false
+    def parseKeywordOpt(kw: String, tc: TC[r]): Option[LocRange] \ r = {
+        tc |> VC.collectIf(token -> match token {
+            case Token.Name(name, loc) if name == kw => Some(loc)
+            case _ => None
         })
     }
 
     /// DOES NOT handle prefix space.
+    def parseKeywordBool(kw: String, tc: TC[r]): Bool \ r = {
+        match parseKeywordOpt(kw, tc) {
+            case Some(_) => true
+            case None => false
+        }
+    }
+
+    /// DOES NOT handle prefix space.
     def parseKeyword(kw: String, tc: TC[r]): Unit \ r + Crash = {
-        if (parseKeywordOpt(kw, tc)) ()
+        if (parseKeywordBool(kw, tc)) ()
         else tc |> errExpect(expected = "'${kw}'", tc |> VC.peek |> peekToString, tc |> latestLoc)
     }
 
