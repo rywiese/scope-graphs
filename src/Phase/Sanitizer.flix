@@ -14,7 +14,8 @@ mod ScopeGraph.Phase.Sanitizer {
             modules,
             aliases,
             enums,
-            defs
+            defs,
+            loc = _
         } = coerce(p);
         uses |> forEach(sanitizeUse);
         modules |> forEach(sanitizeModule);

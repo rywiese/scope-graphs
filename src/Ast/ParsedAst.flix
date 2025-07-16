@@ -9,7 +9,8 @@ mod ScopeGraph.Ast.ParsedAst {
         modules = List[Module],
         aliases = List[TypeAlias],
         enums = List[Enum],
-        defs = List[Def]
+        defs = List[Def],
+        loc = LocRange
     })
 
     pub enum Use({
@@ -95,14 +96,16 @@ mod ScopeGraph.Ast.ParsedAst {
         modules: List[Module],
         aliases: List[TypeAlias],
         enums: List[Enum],
-        defs: List[Def]
+        defs: List[Def],
+        loc: LocRange
     ): Scope =
         Scope.Scope({
             uses = uses,
             modules = modules,
             aliases = aliases,
             enums = enums,
-            defs = defs
+            defs = defs,
+            loc = loc
         })
 
     pub def mkUse(ac: Access, name: Name, loc: LocRange): Use =
@@ -169,7 +172,8 @@ mod ScopeGraph.Ast.ParsedAst {
             modules = List[Module],
             aliases = List[TypeAlias],
             enums = List[Enum],
-            defs = List[Def]
+            defs = List[Def],
+            loc = LocRange
         }
 
         pub def coerce(x: Scope): {
@@ -177,7 +181,8 @@ mod ScopeGraph.Ast.ParsedAst {
             modules = List[Module],
             aliases = List[TypeAlias],
             enums = List[Enum],
-            defs = List[Def]
+            defs = List[Def],
+            loc = LocRange
         } = {
             let Scope.Scope(r) = x;
             r

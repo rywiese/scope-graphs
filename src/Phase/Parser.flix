@@ -22,13 +22,13 @@ mod ScopeGraph.Phase.Parser {
     }
 
     def parseCursor(tc: TC[r]): ParsedAst.Scope \ r + Crash = {
-        let scope = tc |> parseScope;
+        let scope = tc |> parseScope(tc |> latestLoc);
         tc |> parseWsAny;
         if (tc |> VC.inBounds) tc |> errExpect(expected = None |> peekToString, tc |> VC.peek |> peekToString, tc |> latestLoc)
         else scope
     }
 
-    def parseScope(tc: TC[r]): ParsedAst.Scope \ r + Crash = region rc {
+    def parseScope(startLoc: LocRange, tc: TC[r]): ParsedAst.Scope \ r + Crash = region rc {
         let uses = MutList.empty(rc);
         let modules = MutList.empty(rc);
         let aliases = MutList.empty(rc);
@@ -61,12 +61,15 @@ mod ScopeGraph.Phase.Parser {
             if (Ref.get(progress)) loop() else ()
         };
         loop();
+        let endLoc = tc |> latestLoc;
+        let loc = Location.union(startLoc, endLoc);
         ParsedAst.mkScope(
             uses |> MutList.toList,
             modules |> MutList.toList,
             aliases |> MutList.toList,
             enums |> MutList.toList,
-            defs |> MutList.toList
+            defs |> MutList.toList,
+            loc
         )
     }
 
@@ -91,8 +94,8 @@ mod ScopeGraph.Phase.Parser {
         tc |> parseKeywordOpt("mod") |> map(modLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(modLoc);
             let name = tc !> parseWsAny |> parseName;
-            tc |> parseToken(TokenKind.ParenCurlyLeft);
-            let scope = tc |> parseScope;
+            let scopeLoc = tc |> parseTokenWithLoc(TokenKind.ParenCurlyLeft);
+            let scope = tc |> parseScope(scopeLoc);
             let endLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenCurlyRight, List#{"'def'", "'type'", "'use'", "'enum'", "'pub'"});
             let loc = Location.union(startLoc, endLoc);
             ParsedAst.mkModule(ac, name, scope, loc)
