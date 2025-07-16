@@ -27,6 +27,10 @@
       {
         "command": "flixsg:stop",
         "title": "flixsg: Stop Language Server"
+      },
+      {
+        "command": "flixsg:restart",
+        "title": "flixsg: Restart Language Server"
       }
     ]
   },

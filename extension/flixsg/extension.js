@@ -29,6 +29,9 @@ function activate(context) {
 
   const stopCommand = vscode.commands.registerCommand('flixsg:stop', () => stopServer())
   context.subscriptions.push(stopCommand);
+
+  const restartCommand = vscode.commands.registerCommand('flixsg:restart', () => restartServer())
+  context.subscriptions.push(restartCommand);
 }
 
 function startServer() {
@@ -71,6 +74,11 @@ function startServer() {
 
 function stopServer() {
   client.stop()
+}
+
+async function restartServer() {
+  stopServer()
+  startServer()
 }
 
 function deactivate() {
