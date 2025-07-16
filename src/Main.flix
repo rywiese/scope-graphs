@@ -37,12 +37,20 @@ mod ScopeGraph {
             Sanitizer.sanitize
     }
 
+    pub def compileRes(input: String): Result[Error, ParsedAst.Scope] = {
+        run input |> compile |> Result.Ok with Crash.runWith(Result.Err)
+    }
+
     pub def compileUnsafe(input: String): ParsedAst.Scope = {
         run compile(input) with Crash.runUnsafe
     }
 
     pub def compileFile(path: String): ParsedAst.Scope \ IO + Crash = {
         path |> File.read |> compile
+    }
+
+    pub def compileFileRes(path: String): Result[Error, ParsedAst.Scope] \ IO = {
+        run path |> compileFile |> Result.Ok with Crash.runWith(Result.Err)
     }
 
     pub def compileFileUnsafe(path: String): ParsedAst.Scope \ IO = {
