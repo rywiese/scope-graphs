@@ -110,8 +110,9 @@ mod ScopeGraph.Lsp.Server {
             }
             def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + Net + r = {
                 System.err.println("definition");
-                let uri = Paths.get(new URI(params.getTextDocument().getUri())).toString();
-                let locOpt = match ScopeGraph.compileFileRes(uri) {
+                let uri = params.getTextDocument().getUri();
+                let path = Paths.get(new URI(uri)).toString();
+                let locOpt = match ScopeGraph.compileFileRes(path) {
                     case Result.Err(err) =>
                         Result.Err("${err}")
                     case Result.Ok(ast) =>
@@ -123,8 +124,7 @@ mod ScopeGraph.Lsp.Server {
                 };
                 match locOpt {
                     case Result.Ok(_) => ()
-                    case Result.Err(err) =>
-                        client0 |> Ref.get |> Option.forEach(c -> c.showMessage(new MessageParams(MessageType.Error, err)))
+                    case Result.Err(err) => client0 |> showError(err)
                 };
 
                 // Return the location.
@@ -136,6 +136,14 @@ mod ScopeGraph.Lsp.Server {
             }
 
         }
+    }
+
+    def showError(msg: String, client0: Ref[Option[LanguageClient], r]): Unit \ IO + r = {
+        client0 |> Ref.get |> Option.forEach(c -> c.showMessage(new MessageParams(MessageType.Error, msg)))
+    }
+
+    def _logDev(msg: String): Unit \ IO = {
+        System.err.println(msg)
     }
 
     def posToLoc(p: Position): Loc \ IO = {
