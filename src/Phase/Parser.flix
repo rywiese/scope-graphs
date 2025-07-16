@@ -146,22 +146,26 @@ mod ScopeGraph.Phase.Parser {
     ///
     /// Handles prefix space.
     def parseEnumCase(tc: TC[r]): Option[ParsedAst.EnumCase] \ r + Crash = {
-        let (ac, lockedInOpt) = tc |> parseAccess;
-        let lockedIn = not Option.isEmpty(lockedInOpt);
-        tc |> parseWsAny;
-        let skipCheck = if (lockedIn) {tc |> parseKeyword("case"); true} else false;
-        if (skipCheck or tc |> parseKeywordBool("case")) {
+        let (ac, acLocOpt) = tc |> parseAccess;
+        let caseLoc = match acLocOpt {
+            case Some(acLoc) =>
+                tc !> parseWsAny |> parseKeyword("case");
+                Some(acLoc)
+            case None =>
+                tc !> parseWsAny |> parseKeywordOpt("case")
+        };
+        caseLoc |> map(startLoc -> {
             let name = tc !> parseWsAny |> parseWord;
             if (tc |> parseTokenBool(TokenKind.ParenSoftLeft)) {
                 let types = tc |> parseCommaSeq(parseType);
-                tc |> parseTokenHint(TokenKind.ParenSoftRight, List#{"letter"});
-                Some(ParsedAst.mkEnumCase(ac, name, types))
+                let endLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenSoftRight, List#{"letter"});
+                let loc = Location.union(startLoc, endLoc);
+                ParsedAst.mkEnumCase(ac, name, types, loc)
             } else {
-                Some(ParsedAst.mkEnumCase(ac, name, Nil))
+                let loc = Location.union(startLoc, name |> Located.getLoc);
+                ParsedAst.mkEnumCase(ac, name, Nil, loc)
             }
-        } else {
-            None
-        }
+        })
     }
 
     /// Handles prefix space.

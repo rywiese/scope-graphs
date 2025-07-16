@@ -44,7 +44,8 @@ mod ScopeGraph.Ast.ParsedAst {
     pub enum EnumCase({
         ac = Access,
         name = LocString,
-        terms = List[Tpe]
+        terms = List[Tpe],
+        loc = LocRange
     })
 
     pub enum Def({
@@ -129,8 +130,8 @@ mod ScopeGraph.Ast.ParsedAst {
     ): Enum =
         Enum.Enum({ac = ac, name = name, args = args, cases = cases})
 
-    pub def mkEnumCase(ac: Access, name: LocString, terms: List[Tpe]): EnumCase =
-        EnumCase.EnumCase({ac = ac, name = name, terms = terms})
+    pub def mkEnumCase(ac: Access, name: LocString, terms: List[Tpe], loc: LocRange): EnumCase =
+        EnumCase.EnumCase({ac = ac, name = name, terms = terms, loc = loc})
 
     pub def mkDef(
         ac: Access,
@@ -280,9 +281,19 @@ mod ScopeGraph.Ast.ParsedAst {
     }
 
     instance Coerce[EnumCase] {
-        type Out = {ac = Access, name = LocString, terms = List[Tpe]}
+        type Out = {
+            ac = Access,
+            name = LocString,
+            terms = List[Tpe],
+            loc = LocRange
+        }
 
-        pub def coerce(x: EnumCase): {ac = Access, name = LocString, terms = List[Tpe]} = {
+        pub def coerce(x: EnumCase): {
+            ac = Access,
+            name = LocString,
+            terms = List[Tpe],
+            loc = LocRange
+        } = {
             let EnumCase.EnumCase(r) = x;
             r
         }
