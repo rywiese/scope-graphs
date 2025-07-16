@@ -77,7 +77,7 @@ mod ScopeGraph.Phase.Sanitizer {
     }
 
     def sanitizeEnum(m: ParsedAst.Enum): Unit \ Crash = {
-        let {ac = _, name, args, cases} = coerce(m);
+        let {ac = _, name, args, cases, loc = _} = coerce(m);
         assertUpper("Enums must have upper case names", name);
         sanitizeTypeParams(args);
         cases |> forEach(sanitizeCase)

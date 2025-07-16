@@ -50,7 +50,7 @@ mod ScopeGraph.Phase.Parser {
                 aliases |> MutList.push(ta);
                 Ref.put(true, progress)
             });
-            tc !> parseWsAny |> parseEnum(ac) |> forEach(e -> {
+            tc !> parseWsAny |> parseEnum(ac, acLoc) |> forEach(e -> {
                 enums |> MutList.push(e);
                 Ref.put(true, progress)
             });
@@ -124,8 +124,9 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "enum " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseEnum(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.Enum] \ r + Crash = {
-        if (tc |> parseKeywordBool("enum")) {
+    def parseEnum(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.Enum] \ r + Crash = {
+        tc |> parseKeywordOpt("enum") |> map(enumLoc -> {
+            let startLoc = acLoc |> Option.getWithDefault(enumLoc);
             let name = tc !> parseWsAny |> parseWord;
             let args = if (tc |> parseTokenBool(TokenKind.ParenSquareLeft)) {
                 let args1 = tc |> parseCommaSeq(parseWord);
@@ -134,11 +135,10 @@ mod ScopeGraph.Phase.Parser {
             } else Nil;
             tc |> parseToken(TokenKind.ParenCurlyLeft);
             let cases = tc |> parseRepeated(parseEnumCase);
-            tc |> parseTokenHint(TokenKind.ParenCurlyRight, List#{"'case'", "'pub'"});
-            Some(ParsedAst.mkEnum(ac, name, args, cases))
-        } else {
-            None
-        }
+            let endLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenCurlyRight, List#{"'case'", "'pub'"});
+            let loc = Location.union(startLoc, endLoc);
+            ParsedAst.mkEnum(ac, name, args, cases, loc)
+        })
     }
 
     ///

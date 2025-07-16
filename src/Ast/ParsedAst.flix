@@ -38,7 +38,8 @@ mod ScopeGraph.Ast.ParsedAst {
         ac = Access,
         name = LocString,
         args = List[LocString],
-        cases = List[EnumCase]
+        cases = List[EnumCase],
+        loc = LocRange
     })
 
     pub enum EnumCase({
@@ -126,9 +127,10 @@ mod ScopeGraph.Ast.ParsedAst {
         ac: Access,
         name: LocString,
         args: List[LocString],
-        cases: List[EnumCase]
+        cases: List[EnumCase],
+        loc: LocRange
     ): Enum =
-        Enum.Enum({ac = ac, name = name, args = args, cases = cases})
+        Enum.Enum({ac = ac, name = name, args = args, cases = cases, loc = loc})
 
     pub def mkEnumCase(ac: Access, name: LocString, terms: List[Tpe], loc: LocRange): EnumCase =
         EnumCase.EnumCase({ac = ac, name = name, terms = terms, loc = loc})
@@ -266,14 +268,16 @@ mod ScopeGraph.Ast.ParsedAst {
             ac = Access,
             name = LocString,
             args = List[LocString],
-            cases = List[EnumCase]
+            cases = List[EnumCase],
+            loc = LocRange
         }
 
         pub def coerce(x: Enum): {
             ac = Access,
             name = LocString,
             args = List[LocString],
-            cases = List[EnumCase]
+            cases = List[EnumCase],
+            loc = LocRange
         } = {
             let Enum.Enum(r) = x;
             r
