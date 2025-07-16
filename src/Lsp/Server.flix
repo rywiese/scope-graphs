@@ -56,7 +56,9 @@ mod ScopeGraph.Lsp.Server {
                 CompletableFuture.supplyAsync(new Supplier {
                     def get(_this: Supplier): JObject \ IO =
                         let sc = new ServerCapabilities();
-                        sc.setDefinitionProvider(Boolean.valueOf(true));
+                        let bTrue = Boolean.valueOf(true);
+                        sc.setDefinitionProvider(bTrue);
+                        sc.setDocumentHighlightProvider(bTrue);
                         checked_cast(new InitializeResult(
                             sc,
                             new ServerInfo("flixsg", "0.0.1")
