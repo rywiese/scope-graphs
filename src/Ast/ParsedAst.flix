@@ -22,7 +22,8 @@ mod ScopeGraph.Ast.ParsedAst {
     pub enum Module({
         ac = Access,
         name = Name,
-        scope = Scope
+        scope = Scope,
+        loc = LocRange
     })
 
     pub enum TypeAlias({
@@ -108,8 +109,8 @@ mod ScopeGraph.Ast.ParsedAst {
     pub def mkRenamedUse(ac: Access, name: Name, renaming: LocString, loc: LocRange): Use =
         Use.Use({ac = ac, name = name, renaming = Some(renaming), loc = loc})
 
-    pub def mkModule(ac: Access, name: Name, scope: Scope): Module =
-        Module.Module({ac = ac, name = name, scope = scope})
+    pub def mkModule(ac: Access, name: Name, scope: Scope, loc: LocRange): Module =
+        Module.Module({ac = ac, name = name, scope = scope, loc = loc})
 
     pub def mkTypeAlias(
         ac: Access,
@@ -181,9 +182,9 @@ mod ScopeGraph.Ast.ParsedAst {
     }
 
     instance Coerce[Module] {
-        type Out = {ac = Access, name = Name, scope = Scope}
+        type Out = {ac = Access, name = Name, scope = Scope, loc = LocRange}
 
-        pub def coerce(x: Module): {ac = Access, name = Name, scope = Scope} = {
+        pub def coerce(x: Module): {ac = Access, name = Name, scope = Scope, loc = LocRange} = {
             let Module.Module(r) = x;
             r
         }

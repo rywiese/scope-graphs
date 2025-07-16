@@ -48,7 +48,7 @@ mod ScopeGraph.Phase.Sanitizer {
     }
 
     def sanitizeModule(m: ParsedAst.Module): Unit \ Crash = {
-        let {ac = _, name, scope} = coerce(m);
+        let {ac = _, name, scope, loc = _} = coerce(m);
         sanitizeName(name);
         assertUpperName("Modules must be upper case", name);
         sanitize(scope)

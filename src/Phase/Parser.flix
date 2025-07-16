@@ -38,7 +38,7 @@ mod ScopeGraph.Phase.Parser {
         def loop() = {
             Ref.put(false, progress);
             let (ac, acLoc) = tc |> parseAccess;
-            tc !> parseWsAny |> parseModule(ac) |> forEach(m -> {
+            tc !> parseWsAny |> parseModule(ac, acLoc) |> forEach(m -> {
                 modules |> MutList.push(m);
                 Ref.put(true, progress)
             });
@@ -87,16 +87,16 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "mod " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseModule(ac: ParsedAst.Access, tc: TC[r]): Option[ParsedAst.Module] \ r + Crash = {
-        if (tc |> parseKeywordBool("mod")) {
+    def parseModule(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.Module] \ r + Crash = {
+        tc |> parseKeywordOpt("mod") |> map(modLoc -> {
+            let startLoc = acLoc |> Option.getWithDefault(modLoc);
             let name = tc !> parseWsAny |> parseName;
             tc |> parseToken(TokenKind.ParenCurlyLeft);
             let scope = tc |> parseScope;
-            tc |> parseTokenHint(TokenKind.ParenCurlyRight, List#{"'def'", "'type'", "'use'", "'enum'", "'pub'"});
-            Some(ParsedAst.mkModule(ac, name, scope))
-        } else {
-            None
-        }
+            let endLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenCurlyRight, List#{"'def'", "'type'", "'use'", "'enum'", "'pub'"});
+            let loc = Location.union(startLoc, endLoc);
+            ParsedAst.mkModule(ac, name, scope, loc)
+        })
     }
 
     ///
@@ -444,6 +444,18 @@ mod ScopeGraph.Phase.Parser {
         } else {
             let expected = "${hints |> List.join(", ")}, or ${kind}";
             tc |> errExpect(expected = expected, tc |> VC.peek |> peekToString, tc |> latestLoc)
+        }
+    }
+
+    /// Handles prefix space.
+    def parseTokenHintWithLoc(kind: TokenKind, hints: List[String], tc: TC[r]): LocRange \ r + Crash = {
+        tc |> parseWsAny;
+        match tc |> parseTokenOpt(kind) {
+            case Some(loc) =>
+                loc
+            case None =>
+                let expected = "${hints |> List.join(", ")}, or ${kind}";
+                tc |> errExpect(expected = expected, tc |> VC.peek |> peekToString, tc |> latestLoc)
         }
     }
 
