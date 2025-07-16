@@ -9,12 +9,17 @@ mod ScopeGraph.Lsp {
 }
 
 mod ScopeGraph.Lsp.Server {
-    use ScopeGraph.Ast.Shared.Location.LocRange
     use ScopeGraph.Ast.Shared.Location
+    use ScopeGraph.Ast.Shared.Location.Loc
+    use ScopeGraph.Ast.Shared.Location.Located
+    use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Ast.Util.Finder
 
     import java.lang.{Object => JObject}
     import java.lang.Boolean
     import java.lang.System
+    import java.net.URI
+    import java.nio.file.Paths
     import java.util.ArrayList
     import java.util.concurrent.CompletableFuture
     import java.util.function.Supplier
@@ -34,6 +39,7 @@ mod ScopeGraph.Lsp.Server {
     import org.eclipse.lsp4j.InitializeResult
     import org.eclipse.lsp4j.MessageParams
     import org.eclipse.lsp4j.MessageType
+    import org.eclipse.lsp4j.Position
     import org.eclipse.lsp4j.ServerCapabilities
     import org.eclipse.lsp4j.ServerInfo
     import org.eclipse.lsp4j.services.LanguageClient
@@ -84,7 +90,7 @@ mod ScopeGraph.Lsp.Server {
         }
     }
 
-    def mkTextDocumentService(_client0: Ref[Option[LanguageClient], r]): TextDocumentService \ IO = {
+    def mkTextDocumentService(client0: Ref[Option[LanguageClient], r]): TextDocumentService \ IO = {
         new TextDocumentService {
             def didOpen(_this: TextDocumentService, _params: DidOpenTextDocumentParams): Unit \ IO = {
                 System.err.println("didOpen")
@@ -102,21 +108,39 @@ mod ScopeGraph.Lsp.Server {
                 System.err.println("documentHighlight");
                 CompletableFuture.completedFuture(new ArrayList())
             }
-            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + Net + r = {
                 System.err.println("definition");
-                let uri = params.getTextDocument().getUri();
-
-                // Find the Binding location.
-                let zero = Location.mkLoc(line = 1, column = 1, 0);
-                let loc: LocRange = Location.mkLocRange(start = zero, zero);
+                let uri = Paths.get(new URI(params.getTextDocument().getUri())).toString();
+                let locOpt = match ScopeGraph.compileFileRes(uri) {
+                    case Result.Err(err) =>
+                        Result.Err("${err}")
+                    case Result.Ok(ast) =>
+                        let cursor = params.getPosition() |> posToLoc;
+                        match Finder.find(cursor, ast) |> Option.map(Located.getLoc) {
+                            case Some(loc) => Result.Ok(loc)
+                            case None => Result.Err("failed to find")
+                        }
+                };
+                match locOpt {
+                    case Result.Ok(_) => ()
+                    case Result.Err(err) =>
+                        client0 |> Ref.get |> Option.forEach(c -> c.showMessage(new MessageParams(MessageType.Error, err)))
+                };
 
                 // Return the location.
                 let list = new ArrayList();
-                list.add((checked_cast(loc |> locToJLoc(uri)): JObject));
+                locOpt |> Result.forEach(loc ->
+                    discard list.add((checked_cast(loc |> locToJLoc(uri)): JObject))
+                );
                 CompletableFuture.completedFuture(list)
             }
 
         }
+    }
+
+    def posToLoc(p: Position): Loc \ IO = {
+        // TODO need a (line,col) -> offset map to find the index here.
+        Location.mkLoc(line = p.getLine() + 1, column = p.getCharacter() + 1, -1)
     }
 
     def locToJLoc(uri: String, loc: LocRange): JLocation \ IO = {

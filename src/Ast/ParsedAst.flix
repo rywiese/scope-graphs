@@ -84,6 +84,19 @@ mod ScopeGraph.Ast.ParsedAst {
         case App(Tpe, List[Tpe], LocRange)
     }
 
+    pub enum AstNode {
+        case Scope(Scope)
+        case Use(Use)
+        case Module(Module)
+        case TypeAlias(TypeAlias)
+        case Enum(Enum)
+        case EnumCase(EnumCase)
+        case Def(Def)
+        case Exp(Exp)
+        case Name(Name)
+        case Tpe(Tpe)
+    }
+
 
 
     //
@@ -189,6 +202,11 @@ mod ScopeGraph.Ast.ParsedAst {
         }
     }
 
+    instance Located[Scope] {
+        pub def getLoc(x: Scope): LocRange =
+            coerce(x)#loc
+    }
+
     instance Coerce[Module] {
         type Out = {ac = Access, name = Name, scope = Scope, loc = LocRange}
 
@@ -196,6 +214,11 @@ mod ScopeGraph.Ast.ParsedAst {
             let Module.Module(r) = x;
             r
         }
+    }
+
+    instance Located[Module] {
+        pub def getLoc(x: Module): LocRange =
+            coerce(x)#loc
     }
 
     instance Coerce[Name] {
@@ -268,6 +291,12 @@ mod ScopeGraph.Ast.ParsedAst {
         }
     }
 
+    instance Located[TypeAlias] {
+        pub def getLoc(x: TypeAlias): LocRange =
+            coerce(x)#loc
+    }
+
+
     instance Coerce[Enum] {
         type Out = {
             ac = Access,
@@ -289,6 +318,12 @@ mod ScopeGraph.Ast.ParsedAst {
         }
     }
 
+    instance Located[Enum] {
+        pub def getLoc(x: Enum): LocRange =
+            coerce(x)#loc
+    }
+
+
     instance Coerce[EnumCase] {
         type Out = {
             ac = Access,
@@ -307,6 +342,12 @@ mod ScopeGraph.Ast.ParsedAst {
             r
         }
     }
+
+    instance Located[EnumCase] {
+        pub def getLoc(x: EnumCase): LocRange =
+            coerce(x)#loc
+    }
+
 
     instance Coerce[Def] {
         type Out = {
@@ -368,5 +409,21 @@ mod ScopeGraph.Ast.ParsedAst {
         pub def getLoc(x: Tpe): LocRange =
             Tpe.getLoc(x)
     }
+
+    instance Located[AstNode] {
+        pub def getLoc(x: AstNode): LocRange = match x {
+            case AstNode.Scope(y) => y |> Located.getLoc
+            case AstNode.Use(y) => y |> Located.getLoc
+            case AstNode.Module(y) => y |> Located.getLoc
+            case AstNode.TypeAlias(y) => y |> Located.getLoc
+            case AstNode.Enum(y) => y |> Located.getLoc
+            case AstNode.EnumCase(y) => y |> Located.getLoc
+            case AstNode.Def(y) => y |> Located.getLoc
+            case AstNode.Exp(y) => y |> Located.getLoc
+            case AstNode.Name(y) => y |> Located.getLoc
+            case AstNode.Tpe(y) => y |> Located.getLoc
+        }
+    }
+
 
 }

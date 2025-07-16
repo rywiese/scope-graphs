@@ -48,6 +48,10 @@ mod ScopeGraph.Ast.Shared.Location {
             let end = Location.mkLoc(line = line, column = column, index);
             Location.mkLocRange(start = l, end)
         }
+
+        pub def containedIn(range: LocRange, loc: Loc): Bool = {
+            coerce(range)#start <= loc or loc < coerce(range)#end
+        }
     }
 
     pub def mkLocRange(start: {start = Loc}, end: Loc): LocRange =
