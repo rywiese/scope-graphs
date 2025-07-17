@@ -15,9 +15,18 @@ mod ScopeGraph.Lsp.Server {
     use ScopeGraph.Ast.Shared.Location.LocRange
     use ScopeGraph.Ast.Util.Finder
 
+    use Functor.map
+
     import java.lang.{Object => JObject}
-    import java.lang.Boolean
     import java.lang.System
+    import java.lang.Boolean
+    import java.lang.Character
+    import java.lang.Byte
+    import java.lang.Short
+    import java.lang.Integer
+    import java.lang.Long
+    import java.lang.Float
+    import java.lang.Double
     import java.net.URI
     import java.nio.file.Paths
     import java.util.ArrayList
@@ -40,6 +49,8 @@ mod ScopeGraph.Lsp.Server {
     import org.eclipse.lsp4j.MessageParams
     import org.eclipse.lsp4j.MessageType
     import org.eclipse.lsp4j.Position
+    import org.eclipse.lsp4j.DocumentHighlight
+    import org.eclipse.lsp4j.DocumentHighlightKind
     import org.eclipse.lsp4j.ServerCapabilities
     import org.eclipse.lsp4j.ServerInfo
     import org.eclipse.lsp4j.services.LanguageClient
@@ -104,11 +115,32 @@ mod ScopeGraph.Lsp.Server {
             def didSave(_this: TextDocumentService, _params: DidSaveTextDocumentParams): Unit \ IO = {
                 System.err.println("didSave")
             }
-            def documentHighlight(_this: TextDocumentService, _params: DocumentHighlightParams): CompletableFuture \ IO = {
+            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + r = {
                 System.err.println("documentHighlight");
-                CompletableFuture.completedFuture(new ArrayList())
+                let uri = params.getTextDocument().getUri();
+                let path = Paths.get(new URI(uri)).toString();
+                let locOpt = match ScopeGraph.compileFileRes(path) {
+                    case Result.Err(err) =>
+                        Result.Err("${err}")
+                    case Result.Ok(ast) =>
+                        let cursor = params.getPosition() |> posToLoc;
+                        match Finder.find(cursor, ast) |> Option.map(Located.getLoc) {
+                            case Some(loc) => Result.Ok(loc)
+                            case None => Result.Err("failed to find")
+                        }
+                };
+                match locOpt {
+                    case Result.Ok(_) => ()
+                    case Result.Err(err) => client0 |> showError(err)
+                };
+
+                let list = locOpt |>
+                    Result.map(loc -> new DocumentHighlight(loc |> locToJLoc, DocumentHighlightKind.Text)) |>
+                    Result.toList |>
+                    toArrayList;
+                CompletableFuture.completedFuture(list)
             }
-            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + Net + r = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + r = {
                 System.err.println("definition");
                 let uri = params.getTextDocument().getUri();
                 let path = Paths.get(new URI(uri)).toString();
@@ -127,11 +159,10 @@ mod ScopeGraph.Lsp.Server {
                     case Result.Err(err) => client0 |> showError(err)
                 };
 
-                // Return the location.
-                let list = new ArrayList();
-                locOpt |> Result.forEach(loc ->
-                    discard list.add((checked_cast(loc |> locToJLoc(uri)): JObject))
-                );
+                let list = locOpt |>
+                    Result.map(loc -> new JLocation(uri, loc |> locToJLoc)) |>
+                    Result.toList |>
+                    toArrayList;
                 CompletableFuture.completedFuture(list)
             }
 
@@ -151,14 +182,34 @@ mod ScopeGraph.Lsp.Server {
         Location.mkLoc(line = p.getLine() + 1, column = p.getCharacter() + 1, -1)
     }
 
-    def locToJLoc(uri: String, loc: LocRange): JLocation \ IO = {
+    def toObject(x: t): JObject = {
+        typematch x {
+            case y: Bool => checked_cast(Boolean.valueOf(y))
+            case y: Char => checked_cast(Character.valueOf(y))
+            case y: Int8 => checked_cast(Byte.valueOf(y))
+            case y: Int16 => checked_cast(Short.valueOf(y))
+            case y: Int32 => checked_cast(Integer.valueOf(y))
+            case y: Int64 => checked_cast(Long.valueOf(y))
+            case y: Float32 => checked_cast(Float.valueOf(y))
+            case y: Float64 => checked_cast(Double.valueOf(y))
+            case _: _ => unchecked_cast(x as JObject)
+        }
+    }
+
+    /// Boxes primitives
+    def toArrayList(l: List[t]): ArrayList \ IO = {
+        let list = new ArrayList();
+        foreach(x <- l) discard list.add(toObject(x));
+        list
+    }
+
+    def locToJLoc(loc: LocRange): JRange \ IO = {
         let {start, end} = coerce(loc);
         // zero-based
         let jStart = new JPosition(coerce(start)#line - 1, coerce(start)#column - 1);
         let jEnd = new JPosition(coerce(end)#line - 1, coerce(end)#column - 1);
         // exclusive?
-        let jRange = new JRange(jStart, jEnd);
-        new JLocation(uri, jRange)
+        new JRange(jStart, jEnd)
     }
 
     def mkWorkspaceService(): WorkspaceService \ IO = {
