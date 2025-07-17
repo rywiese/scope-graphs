@@ -16,8 +16,9 @@ mod ScopeGraph.Ast.Util.Finder {
     use ScopeGraph.Ast.ParsedAst
     use ScopeGraph.Ast.Shared.Location.Loc
 
-    pub def find(loc: Loc, scope: ParsedAst.Scope): Option[AstNode] = {
+    pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, scope: ParsedAst.Scope): Option[AstNode] \ ef = {
         (loc, scope) ||> ifContained(() -> {
+            visitor(AstNode.Scope(scope));
             let {
                 uses,
                 modules,
@@ -26,53 +27,59 @@ mod ScopeGraph.Ast.Util.Finder {
                 defs,
                 loc = _
             } = coerce(scope);
-            uses |> getFirst(findUse(loc)) |> orElse(() ->
-                modules |> getFirst(findModule(loc)) |> orElse(() ->
-                    aliases |> getFirst(findAlias(loc)) |> orElse(() ->
-                        enums |> getFirst(findEnum(loc)) |> orElse(() ->
-                            defs |> getFirst(findDef(loc))
+            uses |> getFirst(findUse(loc, visitor)) |> orElse(() ->
+                modules |> getFirst(findModule(loc, visitor)) |> orElse(() ->
+                    aliases |> getFirst(findAlias(loc, visitor)) |> orElse(() ->
+                        enums |> getFirst(findEnum(loc, visitor)) |> orElse(() ->
+                            defs |> getFirst(findDef(loc, visitor)) |> orElse(() ->
+                                Some(AstNode.Scope(scope))
+                            )
             ))))
         })
     }
 
-    def findName(loc: Loc, name: Name): Option[AstNode] = {
-        (loc, name) ||> ifContained(() ->
+    def findName(loc: Loc, visitor: AstNode -> Unit \ ef, name: Name): Option[AstNode] \ ef = {
+        (loc, name) ||> ifContained(() -> {
+            visitor(AstNode.Name(name));
             Some(AstNode.Name(name))
-        )
+        })
     }
 
-    def findUse(loc: Loc, usage: Use): Option[AstNode] = {
+    def findUse(loc: Loc, visitor: AstNode -> Unit \ ef, usage: Use): Option[AstNode] \ ef = {
         (loc, usage) ||> ifContained(() -> {
+            visitor(AstNode.Use(usage));
             let {
                 ac = _,
                 name,
                 renaming = _,
                 loc = _
             } = coerce(usage);
-            name |> findName(loc) |> orElse(() ->
+            name |> findName(loc, visitor) |> orElse(() ->
                 Some(AstNode.Use(usage))
             )
         })
     }
 
-    def findModule(loc: Loc, module: Module): Option[AstNode] = {
+    def findModule(loc: Loc, visitor: AstNode -> Unit \ ef, module: Module): Option[AstNode] \ ef = {
         (loc, module) ||> ifContained(() -> {
+            visitor(AstNode.Module(module));
             let {
                 ac = _,
                 name,
                 scope,
                 loc = _
             } = coerce(module);
-            name |> findName(loc) |> orElse(() ->
-                scope |> find(loc) |> orElse(() ->
+            name |> findName(loc, visitor) |> orElse(() ->
+                scope |> find(loc, visitor) |> orElse(() ->
                     Some(AstNode.Module(module))
                 )
             )
         })
     }
 
-    def findAlias(loc: Loc, ta: TypeAlias): Option[AstNode] = {
+    def findAlias(loc: Loc, visitor: AstNode -> Unit \ ef, ta: TypeAlias): Option[AstNode] \ ef = {
         (loc, ta) ||> ifContained(() -> {
+            visitor(AstNode.TypeAlias(ta));
             let {
                 ac = _,
                 name = _,
@@ -80,14 +87,15 @@ mod ScopeGraph.Ast.Util.Finder {
                 tpe,
                 loc = _
             } = coerce(ta);
-            tpe |> findTpe(loc) |> orElse(() ->
+            tpe |> findTpe(loc, visitor) |> orElse(() ->
                 Some(AstNode.TypeAlias(ta))
             )
         })
     }
 
-    def findEnum(loc: Loc, e: Enum): Option[AstNode] = {
+    def findEnum(loc: Loc, visitor: AstNode -> Unit \ ef, e: Enum): Option[AstNode] \ ef = {
         (loc, e) ||> ifContained(() -> {
+            visitor(AstNode.Enum(e));
             let {
                 ac = _,
                 name = _,
@@ -95,28 +103,30 @@ mod ScopeGraph.Ast.Util.Finder {
                 cases,
                 loc = _
             } = coerce(e);
-            cases |> getFirst(findCase(loc)) |> orElse(() ->
+            cases |> getFirst(findCase(loc, visitor)) |> orElse(() ->
                 Some(AstNode.Enum(e))
             )
         })
     }
 
-    def findCase(loc: Loc, c: EnumCase): Option[AstNode] = {
+    def findCase(loc: Loc, visitor: AstNode -> Unit \ ef, c: EnumCase): Option[AstNode] \ ef = {
         (loc, c) ||> ifContained(() -> {
+            visitor(AstNode.EnumCase(c));
             let {
                 ac = _,
                 name = _,
                 terms,
                 loc = _
             } = coerce(c);
-            terms |> getFirst(findTpe(loc)) |> orElse(() ->
+            terms |> getFirst(findTpe(loc, visitor)) |> orElse(() ->
                 Some(AstNode.EnumCase(c))
             )
         })
     }
 
-    def findDef(loc: Loc, d: Def): Option[AstNode] = {
+    def findDef(loc: Loc, visitor: AstNode -> Unit \ ef, d: Def): Option[AstNode] \ ef = {
         (loc, d) ||> ifContained(() -> {
+            visitor(AstNode.Def(d));
             let {
                 ac = _,
                 name = _,
@@ -125,9 +135,9 @@ mod ScopeGraph.Ast.Util.Finder {
                 exp,
                 loc = _
             } = coerce(d);
-            args |> getFirst(snd >> findTpe(loc)) |> orElse(() ->
-                tpe |> findTpe(loc) |> orElse(() ->
-                    exp |> findExp(loc) |> orElse(() ->
+            args |> getFirst(snd >> findTpe(loc, visitor)) |> orElse(() ->
+                tpe |> findTpe(loc, visitor) |> orElse(() ->
+                    exp |> findExp(loc, visitor) |> orElse(() ->
                         Some(AstNode.Def(d))
                     )
                 )
@@ -135,36 +145,38 @@ mod ScopeGraph.Ast.Util.Finder {
         })
     }
 
-    def findTpe(loc: Loc, tpe: Tpe): Option[AstNode] = {
+    def findTpe(loc: Loc, visitor: AstNode -> Unit \ ef, tpe: Tpe): Option[AstNode] \ ef = {
         (loc, tpe) ||> ifContained(() -> {
+            visitor(AstNode.Tpe(tpe));
             match tpe {
                 case Tpe.Base(_, _) =>
                     Some(AstNode.Tpe(tpe))
                 case Tpe.App(t1, t2, _) =>
-                    (t1 :: t2) |> getFirst(findTpe(loc)) |> orElse(() ->
+                    (t1 :: t2) |> getFirst(findTpe(loc, visitor)) |> orElse(() ->
                         Some(AstNode.Tpe(tpe))
                     )
             }
         })
     }
 
-    def findExp(loc: Loc, exp: Exp): Option[AstNode] = {
+    def findExp(loc: Loc, visitor: AstNode -> Unit \ ef, exp: Exp): Option[AstNode] \ ef = {
         (loc, exp) ||> ifContained(() -> {
+            visitor(AstNode.Exp(exp));
             match exp {
                 case Exp.Let(_, e1, e2, _) =>
-                    List#{e1, e2} |> getFirst(findExp(loc)) |> orElse(() ->
+                    List#{e1, e2} |> getFirst(findExp(loc, visitor)) |> orElse(() ->
                         Some(AstNode.Exp(exp))
                     )
                 case Exp.Stmt(e1, e2, _) =>
-                    List#{e1, e2} |> getFirst(findExp(loc)) |> orElse(() ->
+                    List#{e1, e2} |> getFirst(findExp(loc, visitor)) |> orElse(() ->
                         Some(AstNode.Exp(exp))
                     )
                 case Exp.App(e1, e2, _) =>
-                    (e1 :: e2) |> getFirst(findExp(loc)) |> orElse(() ->
+                    (e1 :: e2) |> getFirst(findExp(loc, visitor)) |> orElse(() ->
                         Some(AstNode.Exp(exp))
                     )
                 case Exp.Name(name, _) =>
-                    name |> findName(loc) |> orElse(() ->
+                    name |> findName(loc, visitor) |> orElse(() ->
                         Some(AstNode.Exp(exp))
                     )
                 case Exp.Int(_, _) =>

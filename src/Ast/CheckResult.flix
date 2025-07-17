@@ -28,7 +28,7 @@ mod ScopeGraph.Ast.CheckResult {
         CheckResult({ast = ast})
 
     pub def enclosingRange(loc: Loc, cr: CheckResult): Option[LocRange] = {
-        Finder.find(loc, coerce(cr)#ast) |> map(Located.getLoc)
+        Finder.find(loc, _ -> (), coerce(cr)#ast) |> map(Located.getLoc)
     }
 
     pub def definition(_loc: Loc, _cr: CheckResult): Option[LocRange] = {
