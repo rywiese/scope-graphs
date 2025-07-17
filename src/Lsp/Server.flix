@@ -140,32 +140,12 @@ mod ScopeGraph.Lsp.Server {
                     toArrayList;
                 CompletableFuture.completedFuture(list)
             }
-            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + r = {
+            def definition(_this: TextDocumentService, _params: DefinitionParams): CompletableFuture \ IO = {
                 System.err.println("definition");
-                let uri = params.getTextDocument().getUri();
-                let path = Paths.get(new URI(uri)).toString();
-                let locOpt = match ScopeGraph.compileFileRes(path) {
-                    case Result.Err(err) =>
-                        Result.Err("${err}")
-                    case Result.Ok(ast) =>
-                        let cursor = params.getPosition() |> posToLoc;
-                        match Finder.find(cursor, ast) |> Option.map(Located.getLoc) {
-                            case Some(loc) => Result.Ok(loc)
-                            case None => Result.Err("failed to find")
-                        }
-                };
-                match locOpt {
-                    case Result.Ok(_) => ()
-                    case Result.Err(err) => client0 |> showError(err)
-                };
 
-                let list = locOpt |>
-                    Result.map(loc -> new JLocation(uri, loc |> locToJLoc)) |>
-                    Result.toList |>
-                    toArrayList;
+                let list = (Nil: List[JObject]) |> toArrayList;
                 CompletableFuture.completedFuture(list)
             }
-
         }
     }
 
@@ -173,8 +153,8 @@ mod ScopeGraph.Lsp.Server {
         client0 |> Ref.get |> Option.forEach(c -> c.showMessage(new MessageParams(MessageType.Error, msg)))
     }
 
-    def _logDev(msg: String): Unit \ IO = {
-        System.err.println(msg)
+    def _logDev(prefix: String, msg: String): Unit \ IO = {
+        System.err.println(prefix + ": " + msg)
     }
 
     def posToLoc(p: Position): Loc \ IO = {
