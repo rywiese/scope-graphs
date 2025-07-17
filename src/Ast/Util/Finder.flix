@@ -139,10 +139,8 @@ mod ScopeGraph.Ast.Util.Finder {
                 case Tpe.Base(_, _) =>
                     Some(AstNode.Tpe(tpe))
                 case Tpe.App(t1, t2, _) =>
-                    t1 |> findTpe(loc) |> orElse(() ->
-                        t2 |> getFirst(findTpe(loc)) |> orElse(() ->
-                            Some(AstNode.Tpe(tpe))
-                        )
+                    (t1 :: t2) |> getFirst(findTpe(loc)) |> orElse(() ->
+                        Some(AstNode.Tpe(tpe))
                     )
             }
         })

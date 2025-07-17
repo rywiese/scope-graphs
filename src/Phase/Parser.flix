@@ -177,12 +177,9 @@ mod ScopeGraph.Phase.Parser {
         let base = ParsedAst.Tpe.Base(name, name |> Located.getLoc);
         if (tc |> parseTokenBool(TokenKind.ParenSquareLeft)) {
             let args = tc |> parseCommaSeq(parseType);
-            tc |> parseTokenHint(TokenKind.ParenSquareRight, List#{"letter"});
-            let lastLoc = args |>
-                List.last |>
-                map(Located.getLoc) |>
-                Option.getWithDefault(base |> Located.getLoc);
-            ParsedAst.Tpe.App(base, args, lastLoc)
+            let lastLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenSquareRight, List#{"letter"});
+            let loc = Location.union(name |> Located.getLoc, lastLoc);
+            ParsedAst.Tpe.App(base, args, loc)
         } else {
             base
         }
