@@ -21,6 +21,7 @@ def main(): Unit \ IO + Sys = run {
 mod ScopeGraph {
     use ScopeGraph.Ast
     use ScopeGraph.Ast.ParsedAst
+    use ScopeGraph.Ast.CheckResult
     use ScopeGraph.Ast.Shared.Crash
     use ScopeGraph.Ast.Shared.Error
     use ScopeGraph.Phase.File
@@ -30,30 +31,31 @@ mod ScopeGraph {
     use ScopeGraph.Util.StringCursor
     use ScopeGraph.Util.VectorCursor
 
-    pub def compile(input: String): ParsedAst.Scope \ Crash = {
-        input |>
+    pub def compile(input: String): CheckResult \ Crash = {
+        let ast = input |>
             Lexer.lex |>
             Parser.parse !>
-            Sanitizer.sanitize
+            Sanitizer.sanitize;
+        CheckResult.mk(ast)
     }
 
-    pub def compileRes(input: String): Result[Error, ParsedAst.Scope] = {
+    pub def compileRes(input: String): Result[Error, CheckResult] = {
         run input |> compile |> Result.Ok with Crash.runWith(Result.Err)
     }
 
-    pub def compileUnsafe(input: String): ParsedAst.Scope = {
+    pub def compileUnsafe(input: String): CheckResult = {
         run compile(input) with Crash.runUnsafe
     }
 
-    pub def compileFile(path: String): ParsedAst.Scope \ IO + Crash = {
+    pub def compileFile(path: String): CheckResult \ IO + Crash = {
         path |> File.read |> compile
     }
 
-    pub def compileFileRes(path: String): Result[Error, ParsedAst.Scope] \ IO = {
+    pub def compileFileRes(path: String): Result[Error, CheckResult] \ IO = {
         run path |> compileFile |> Result.Ok with Crash.runWith(Result.Err)
     }
 
-    pub def compileFileUnsafe(path: String): ParsedAst.Scope \ IO = {
+    pub def compileFileUnsafe(path: String): CheckResult \ IO = {
         run compileFile(path) with Crash.runWith(Error.toStringWithFile(path) >> bug!)
     }
 

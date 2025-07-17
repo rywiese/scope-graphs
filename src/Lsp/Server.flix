@@ -9,24 +9,24 @@ mod ScopeGraph.Lsp {
 }
 
 mod ScopeGraph.Lsp.Server {
+    use ScopeGraph.Ast.CheckResult
     use ScopeGraph.Ast.Shared.Location
     use ScopeGraph.Ast.Shared.Location.Loc
     use ScopeGraph.Ast.Shared.Location.Located
     use ScopeGraph.Ast.Shared.Location.LocRange
-    use ScopeGraph.Ast.Util.Finder
 
     use Functor.map
 
     import java.lang.{Object => JObject}
-    import java.lang.System
     import java.lang.Boolean
-    import java.lang.Character
     import java.lang.Byte
-    import java.lang.Short
+    import java.lang.Character
+    import java.lang.Double
+    import java.lang.Float
     import java.lang.Integer
     import java.lang.Long
-    import java.lang.Float
-    import java.lang.Double
+    import java.lang.Short
+    import java.lang.System
     import java.net.URI
     import java.nio.file.Paths
     import java.util.ArrayList
@@ -42,6 +42,8 @@ mod ScopeGraph.Lsp.Server {
     import org.eclipse.lsp4j.DidCloseTextDocumentParams
     import org.eclipse.lsp4j.DidOpenTextDocumentParams
     import org.eclipse.lsp4j.DidSaveTextDocumentParams
+    import org.eclipse.lsp4j.DocumentHighlight
+    import org.eclipse.lsp4j.DocumentHighlightKind
     import org.eclipse.lsp4j.DocumentHighlightParams
     import org.eclipse.lsp4j.DocumentLinkParams
     import org.eclipse.lsp4j.InitializeParams
@@ -49,8 +51,6 @@ mod ScopeGraph.Lsp.Server {
     import org.eclipse.lsp4j.MessageParams
     import org.eclipse.lsp4j.MessageType
     import org.eclipse.lsp4j.Position
-    import org.eclipse.lsp4j.DocumentHighlight
-    import org.eclipse.lsp4j.DocumentHighlightKind
     import org.eclipse.lsp4j.ServerCapabilities
     import org.eclipse.lsp4j.ServerInfo
     import org.eclipse.lsp4j.services.LanguageClient
@@ -101,7 +101,7 @@ mod ScopeGraph.Lsp.Server {
         }
     }
 
-    def mkTextDocumentService(client0: Ref[Option[LanguageClient], r]): TextDocumentService \ IO = {
+    def mkTextDocumentService(_client0: Ref[Option[LanguageClient], r]): TextDocumentService \ IO = {
         new TextDocumentService {
             def didOpen(_this: TextDocumentService, _params: DidOpenTextDocumentParams): Unit \ IO = {
                 System.err.println("didOpen")
@@ -115,28 +115,27 @@ mod ScopeGraph.Lsp.Server {
             def didSave(_this: TextDocumentService, _params: DidSaveTextDocumentParams): Unit \ IO = {
                 System.err.println("didSave")
             }
-            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + r = {
+            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO = {
                 System.err.println("documentHighlight");
                 let uri = params.getTextDocument().getUri();
                 let path = Paths.get(new URI(uri)).toString();
-                let locOpt = match ScopeGraph.compileFileRes(path) {
+                let highlights = match ScopeGraph.compileFileRes(path) {
                     case Result.Err(err) =>
-                        Result.Err("${err}")
-                    case Result.Ok(ast) =>
+                        logDev("compilation err", err |> ToString.toString);
+                        Nil
+                    case Result.Ok(cr) =>
                         let cursor = params.getPosition() |> posToLoc;
-                        match Finder.find(cursor, ast) |> Option.map(Located.getLoc) {
-                            case Some(loc) => Result.Ok(loc)
-                            case None => Result.Err("failed to find")
+                        match CheckResult.enclosingRange(cursor, cr) {
+                            case None =>
+                                logDev("finder", "miss");
+                                Nil
+                            case Some(range) =>
+                                List#{range}
                         }
                 };
-                match locOpt {
-                    case Result.Ok(_) => ()
-                    case Result.Err(err) => client0 |> showError(err)
-                };
 
-                let list = locOpt |>
-                    Result.map(loc -> new DocumentHighlight(loc |> locToJLoc, DocumentHighlightKind.Text)) |>
-                    Result.toList |>
+                let list = highlights |>
+                    map(loc -> new DocumentHighlight(loc |> locToJLoc, DocumentHighlightKind.Text)) |>
                     toArrayList;
                 CompletableFuture.completedFuture(list)
             }
@@ -149,11 +148,11 @@ mod ScopeGraph.Lsp.Server {
         }
     }
 
-    def showError(msg: String, client0: Ref[Option[LanguageClient], r]): Unit \ IO + r = {
+    def _showError(msg: String, client0: Ref[Option[LanguageClient], r]): Unit \ IO + r = {
         client0 |> Ref.get |> Option.forEach(c -> c.showMessage(new MessageParams(MessageType.Error, msg)))
     }
 
-    def _logDev(prefix: String, msg: String): Unit \ IO = {
+    def logDev(prefix: String, msg: String): Unit \ IO = {
         System.err.println(prefix + ": " + msg)
     }
 
