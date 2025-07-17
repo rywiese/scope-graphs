@@ -50,6 +50,7 @@ mod ScopeGraph.Lsp.Server {
     import org.eclipse.lsp4j.InitializeResult
     import org.eclipse.lsp4j.MessageParams
     import org.eclipse.lsp4j.MessageType
+    import org.eclipse.lsp4j.jsonrpc.messages.{Either => JEither}
     import org.eclipse.lsp4j.Position
     import org.eclipse.lsp4j.ServerCapabilities
     import org.eclipse.lsp4j.ServerInfo
@@ -118,7 +119,7 @@ mod ScopeGraph.Lsp.Server {
             def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO = {
                 System.err.println("documentHighlight");
                 let uri = params.getTextDocument().getUri();
-                let path = Paths.get(new URI(uri)).toString();
+                let path = pathFromUri(uri);
                 let highlights = match ScopeGraph.compileFileRes(path) {
                     case Result.Err(err) =>
                         logDev("compilation err", err |> ToString.toString);
@@ -139,13 +140,37 @@ mod ScopeGraph.Lsp.Server {
                     toArrayList;
                 CompletableFuture.completedFuture(list)
             }
-            def definition(_this: TextDocumentService, _params: DefinitionParams): CompletableFuture \ IO = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO = {
                 System.err.println("definition");
+                let uri = params.getTextDocument().getUri();
+                let path = pathFromUri(uri);
+                let highlights = match ScopeGraph.compileFileRes(path) {
+                    case Result.Err(err) =>
+                        logDev("compilation err", err |> ToString.toString);
+                        Nil
+                    case Result.Ok(cr) =>
+                        let cursor = params.getPosition() |> posToLoc;
+                        match CheckResult.definition(cursor, cr) {
+                            case None =>
+                                logDev("finder", "miss");
+                                Nil
+                            case Some(range) =>
+                                List#{range}
+                        }
+                };
 
-                let list = (Nil: List[JObject]) |> toArrayList;
+                let list = highlights |>
+                    map(loc -> {
+                        JEither.forLeft(new JLocation(uri, loc |> locToJLoc))
+                    }) |>
+                    toArrayList;
                 CompletableFuture.completedFuture(list)
             }
         }
+    }
+
+    def pathFromUri(uri: String): String \ IO = {
+        Paths.get(new URI(uri)).toString()
     }
 
     def _showError(msg: String, client0: Ref[Option[LanguageClient], r]): Unit \ IO + r = {
