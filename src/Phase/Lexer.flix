@@ -33,7 +33,7 @@ mod ScopeGraph.Phase.Lexer {
     def empty(rc: Region[r], sc: SC[r]): State[r] \ r = {
         tokens = MutList.empty(rc),
         sc = sc,
-        previousEnd = Ref.fresh(rc, Location.mkLoc(line = 0, column = 0, 0))
+        previousEnd = Ref.fresh(rc, Location.mkLoc(line = 1, column = 1, 0))
     }
 
     def collect(t: LocRange -> Token, s: State[r]): Unit \ r = {

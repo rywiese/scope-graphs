@@ -5,8 +5,11 @@ mod ScopeGraph.Ast.Shared.Location {
         pub def getLoc(x: t): LocRange
     }
 
-    pub def mkLoc(line: {line = Int32}, column: {column = Int32}, index: Int32): Loc =
-        Loc.Loc({line = line#line, column = column#column, index = index})
+    pub def mkLoc(line: {line = Int32}, column: {column = Int32}, index: Int32): Loc = {
+        if (line#line < 1) bug!("line is negative")
+        else if (column#column < 1) bug!("column is negative")
+        else Loc.Loc({line = line#line, column = column#column, index = index})
+    }
 
     /// line is one-indexed.
     /// column is one-indexed.
@@ -23,13 +26,27 @@ mod ScopeGraph.Ast.Shared.Location {
     }
 
     instance Eq[Loc] {
-        pub def eq(x: Loc, y: Loc): Bool =
-            coerce(x)#index == coerce(y)#index
+        pub def eq(x: Loc, y: Loc): Bool = {
+            let {line = lineX, column = columnX, index = indexX} = coerce(x);
+            let {line = lineY, column = columnY, index = indexY} = coerce(y);
+            if (indexX != -1 and indexY != -1) {
+                indexX == indexY
+            } else {
+                lineX == lineY and columnX == columnY
+            }
+        }
     }
 
     instance Order[Loc] {
-        pub def compare(x: Loc, y: Loc): Comparison =
-            coerce(x)#index <=> coerce(y)#index
+        pub def compare(x: Loc, y: Loc): Comparison = {
+            let {line = lineX, column = columnX, index = indexX} = coerce(x);
+            let {line = lineY, column = columnY, index = indexY} = coerce(y);
+            if (indexX != -1 and indexY != -1) {
+                indexX <=> indexY
+            } else {
+                (lineX, columnX) <=> (lineY, columnY)
+            }
+        }
     }
 
     instance ToString[Loc] {
@@ -45,12 +62,12 @@ mod ScopeGraph.Ast.Shared.Location {
 
         pub def point(l: Loc): LocRange = {
             let {line, column, index} = coerce(l);
-            let end = Location.mkLoc(line = line, column = column, index);
+            let end = Location.mkLoc(line = line, column = column + 1, index);
             Location.mkLocRange(start = l, end)
         }
 
         pub def containedIn(range: LocRange, loc: Loc): Bool = {
-            coerce(range)#start <= loc or loc < coerce(range)#end
+            coerce(range)#start <= loc and loc < coerce(range)#end
         }
     }
 

@@ -1,4 +1,6 @@
 mod ScopeGraph.Ast.Util.Finder {
+    import java.lang.System
+
     use ScopeGraph.Ast.ParsedAst.Exp
     use ScopeGraph.Ast.ParsedAst.Tpe
     use ScopeGraph.Ast.ParsedAst.Def
@@ -178,7 +180,10 @@ mod ScopeGraph.Ast.Util.Finder {
     }
 
     def ifContained(f: Unit -> Option[t] \ ef, loc: Loc, thing: thing): Option[t] \ ef with Located[thing] = {
-        if (contains(loc, thing)) f() else None
+        if (contains(loc, thing)) checked_ecast(unsafely IO run {
+            System.err.println(thing |> getLoc |> ToString.toString);
+            f()
+        }) else None
     }
 
     def getFirst(f: a -> Option[b] \ ef, l: List[a]): Option[b] \ ef = {
