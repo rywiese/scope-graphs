@@ -120,14 +120,16 @@ mod ScopeGraph.Ast.Util.Finder {
             let {
                 ac = _,
                 name = _,
-                args = _,
+                args,
                 tpe,
                 exp,
                 loc = _
             } = coerce(d);
-            tpe |> findTpe(loc) |> orElse(() ->
-                exp |> findExp(loc) |> orElse(() ->
-                    Some(AstNode.Def(d))
+            args |> getFirst(snd >> findTpe(loc)) |> orElse(() ->
+                tpe |> findTpe(loc) |> orElse(() ->
+                    exp |> findExp(loc) |> orElse(() ->
+                        Some(AstNode.Def(d))
+                    )
                 )
             )
         })
