@@ -1,10 +1,12 @@
 mod ScopeGraph.Lsp {
+    use ScopeGraph.Manager
     import org.eclipse.lsp4j.services.LanguageClient
     import org.eclipse.lsp4j.services.LanguageServer
 
     pub struct Server[r] {
         server: LanguageServer,
-        connect: LanguageClient -> Unit \ r
+        connect: LanguageClient -> Unit \ r,
+        manager: Manager[String, r]
     }
 }
 
@@ -14,6 +16,7 @@ mod ScopeGraph.Lsp.Server {
     use ScopeGraph.Ast.Shared.Location.Loc
     use ScopeGraph.Ast.Shared.Location.Located
     use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Manager
 
     use Functor.map
 
@@ -98,7 +101,8 @@ mod ScopeGraph.Lsp.Server {
         };
         new Server @ rc {
             server = server,
-            connect = c -> Ref.put(Some(c), client)
+            connect = c -> Ref.put(Some(c), client),
+            manager = Manager.empty(rc)
         }
     }
 
