@@ -1,7 +1,11 @@
 mod ScopeGraph.Ast {
+    use ScopeGraph.Ast.Shared.Location.Source
     use Lexed.Token
 
-    type alias Lexed = Vector[Token]
+    pub type alias Lexed = {
+        tokens = Vector[Token],
+        src = Source
+    }
 
     mod Lexed {
         use ScopeGraph.Ast.Shared.Location.Located

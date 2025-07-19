@@ -8,7 +8,11 @@ mod ScopeGraph.Phase.Sanitizer {
     use ScopeGraph.Ast.Shared.Error
     use ScopeGraph.Ast.Shared.Location.LocString
 
-    pub def sanitize(p: ParsedAst.Scope): Unit \ Crash = {
+    pub def sanitize(p: ParsedAst): Unit \ Crash = {
+        sanitizeScope(p#ast)
+    }
+
+    def sanitizeScope(s: ParsedAst.Scope): Unit \ Crash = {
         let {
             uses,
             modules,
@@ -16,7 +20,7 @@ mod ScopeGraph.Phase.Sanitizer {
             enums,
             defs,
             loc = _
-        } = coerce(p);
+        } = coerce(s);
         uses |> forEach(sanitizeUse);
         modules |> forEach(sanitizeModule);
         aliases |> forEach(sanitizeAlias);
@@ -52,7 +56,7 @@ mod ScopeGraph.Phase.Sanitizer {
         let {ac = _, name, scope, loc = _} = coerce(m);
         sanitizeName(name);
         assertUpperName("Modules must be upper case", name);
-        sanitize(scope)
+        sanitizeScope(scope)
     }
 
     def sanitizeAlias(ta: ParsedAst.TypeAlias): Unit \ Crash = {

@@ -1,4 +1,7 @@
 mod ScopeGraph.Phase.Parser {
+    use ScopeGraph.Ast.ParsedAst
+    use ScopeGraph.Phase.Lexer
+    use ScopeGraph.Ast.Shared.Location.Source
     use ScopeGraph.Ast.Shared.Location.LocRange
     use Foldable.forEach
     use Functor.map
@@ -13,22 +16,32 @@ mod ScopeGraph.Phase.Parser {
     use ScopeGraph.Ast.Shared.Location.LocString
     use ScopeGraph.Ast.Shared.Location.Located
     use ScopeGraph.Util.{VectorCursor => VC}
-    use ScopeGraph.Phase.Parser.{TokenCursor => TC}
 
-    type alias TokenCursor[r: Region] = VC[Token, r]
-
-    pub def parse(tokens: Vector[Token]): ParsedAst.Scope \ Crash = region rc {
-        tokens |> VC.mk(rc) |> parseCursor
+    type alias State[r: Region] = {
+        vc = VC[Token, r],
+        src = Source
     }
 
-    def parseCursor(tc: TC[r]): ParsedAst.Scope \ r + Crash = {
-        let scope = tc |> parseScope(tc |> latestLoc);
-        tc |> parseWsAny;
-        if (tc |> VC.inBounds) tc |> errExpect(expected = None |> peekToString, tc |> VC.peek |> peekToString, tc |> latestLoc)
+    def newState(rc: Region[r], src: Source, v: Vector[Token]): State[r] \ r = {
+        {
+            vc = VC.mk(rc, v),
+            src = src
+        }
+    }
+
+    pub def parse(input: Lexed): ParsedAst \ Crash = region rc {
+        let ast = input#tokens |> newState(rc, input#src) |> parseCursor;
+        {ast = ast, src = input#src}
+    }
+
+    def parseCursor(s: State[r]): ParsedAst.Scope \ r + Crash = {
+        let scope = s |> parseScope(s |> latestLoc);
+        s |> parseWsAny;
+        if (s#vc |> VC.inBounds) s |> errExpect(expected = None |> peekToString, s#vc |> VC.peek |> peekToString, s |> latestLoc)
         else scope
     }
 
-    def parseScope(startLoc: LocRange, tc: TC[r]): ParsedAst.Scope \ r + Crash = region rc {
+    def parseScope(startLoc: LocRange, s: State[r]): ParsedAst.Scope \ r + Crash = region rc {
         let uses = MutList.empty(rc);
         let modules = MutList.empty(rc);
         let aliases = MutList.empty(rc);
@@ -37,31 +50,31 @@ mod ScopeGraph.Phase.Parser {
         let progress = Ref.fresh(rc, true);
         def loop() = {
             Ref.put(false, progress);
-            let (ac, acLoc) = tc |> parseAccess;
-            tc !> parseWsAny |> parseModule(ac, acLoc) |> forEach(m -> {
+            let (ac, acLoc) = s |> parseAccess;
+            s !> parseWsAny |> parseModule(ac, acLoc) |> forEach(m -> {
                 modules |> MutList.push(m);
                 Ref.put(true, progress)
             });
-            tc !> parseWsAny |> parseUse(ac, acLoc) |> forEach(u -> {
+            s !> parseWsAny |> parseUse(ac, acLoc) |> forEach(u -> {
                 uses |> MutList.push(u);
                 Ref.put(true, progress)
             });
-            tc !> parseWsAny |> parseTypeAlias(ac, acLoc) |> forEach(ta -> {
+            s !> parseWsAny |> parseTypeAlias(ac, acLoc) |> forEach(ta -> {
                 aliases |> MutList.push(ta);
                 Ref.put(true, progress)
             });
-            tc !> parseWsAny |> parseEnum(ac, acLoc) |> forEach(e -> {
+            s !> parseWsAny |> parseEnum(ac, acLoc) |> forEach(e -> {
                 enums |> MutList.push(e);
                 Ref.put(true, progress)
             });
-            tc !> parseWsAny |> parseDef(ac, acLoc) |> forEach(d -> {
+            s !> parseWsAny |> parseDef(ac, acLoc) |> forEach(d -> {
                 defs |> MutList.push(d);
                 Ref.put(true, progress)
             });
             if (Ref.get(progress)) loop() else ()
         };
         loop();
-        let endLoc = tc |> latestLoc;
+        let endLoc = s |> latestLoc;
         let loc = Location.union(startLoc, endLoc);
         ParsedAst.mkScope(
             uses |> MutList.toList,
@@ -78,9 +91,9 @@ mod ScopeGraph.Phase.Parser {
     /// Returns (_, true) if any non-space input was consumed.
     ///
     /// Handles prefix space.
-    def parseAccess(tc: TC[r]): (ParsedAst.Access, Option[LocRange]) \ r = {
-        tc |> parseWsAny;
-        match tc |> parseKeywordOpt("pub") {
+    def parseAccess(s: State[r]): (ParsedAst.Access, Option[LocRange]) \ r = {
+        s |> parseWsAny;
+        match s |> parseKeywordOpt("pub") {
             case Some(loc) => (ParsedAst.Access.Public, Some(loc))
             case None => (ParsedAst.Access.Private, None)
         }
@@ -90,13 +103,13 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "mod " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseModule(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.Module] \ r + Crash = {
-        tc |> parseKeywordOpt("mod") |> map(modLoc -> {
+    def parseModule(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Module] \ r + Crash = {
+        s |> parseKeywordOpt("mod") |> map(modLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(modLoc);
-            let name = tc !> parseWsAny |> parseName;
-            let scopeLoc = tc |> parseTokenWithLoc(TokenKind.ParenCurlyLeft);
-            let scope = tc |> parseScope(scopeLoc);
-            let endLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenCurlyRight, List#{"'def'", "'type'", "'use'", "'enum'", "'pub'"});
+            let name = s !> parseWsAny |> parseName;
+            let scopeLoc = s |> parseTokenWithLoc(TokenKind.ParenCurlyLeft);
+            let scope = s |> parseScope(scopeLoc);
+            let endLoc = s |> parseTokenHintWithLoc(TokenKind.ParenCurlyRight, List#{"'def'", "'type'", "'use'", "'enum'", "'pub'"});
             let loc = Location.union(startLoc, endLoc);
             ParsedAst.mkModule(ac, name, scope, loc)
         })
@@ -106,18 +119,18 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "type " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseTypeAlias(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.TypeAlias] \ r + Crash = {
-        tc |> parseKeywordOpt("type") |> map(typeLoc -> {
+    def parseTypeAlias(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.TypeAlias] \ r + Crash = {
+        s |> parseKeywordOpt("type") |> map(typeLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(typeLoc);
-            tc !> parseWsAny |> parseKeyword("alias");
-            let name = tc !> parseWsAny |> parseWord;
-            let args = if (tc |> parseTokenBool(TokenKind.ParenSquareLeft)) {
-                let args1 = tc |> parseCommaSeq(parseWord);
-                tc |> parseTokenHint(TokenKind.ParenSquareRight, List#{"letter"});
+            s !> parseWsAny |> parseKeyword("alias");
+            let name = s !> parseWsAny |> parseWord;
+            let args = if (s |> parseTokenBool(TokenKind.ParenSquareLeft)) {
+                let args1 = s |> parseCommaSeq(parseWord);
+                s |> parseTokenHint(TokenKind.ParenSquareRight, List#{"letter"});
                 args1
             } else Nil;
-            tc |> parseToken(TokenKind.Eq);
-            let tpe = tc |> parseType;
+            s |> parseToken(TokenKind.Eq);
+            let tpe = s |> parseType;
             let loc = Location.union(startLoc, tpe |> Located.getLoc);
             ParsedAst.mkTypeAlias(ac, name, args, tpe, loc)
         })
@@ -127,18 +140,18 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "enum " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseEnum(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.Enum] \ r + Crash = {
-        tc |> parseKeywordOpt("enum") |> map(enumLoc -> {
+    def parseEnum(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Enum] \ r + Crash = {
+        s |> parseKeywordOpt("enum") |> map(enumLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(enumLoc);
-            let name = tc !> parseWsAny |> parseWord;
-            let args = if (tc |> parseTokenBool(TokenKind.ParenSquareLeft)) {
-                let args1 = tc |> parseCommaSeq(parseWord);
-                tc |> parseTokenHint(TokenKind.ParenSquareRight, List#{"letter"});
+            let name = s !> parseWsAny |> parseWord;
+            let args = if (s |> parseTokenBool(TokenKind.ParenSquareLeft)) {
+                let args1 = s |> parseCommaSeq(parseWord);
+                s |> parseTokenHint(TokenKind.ParenSquareRight, List#{"letter"});
                 args1
             } else Nil;
-            tc |> parseToken(TokenKind.ParenCurlyLeft);
-            let cases = tc |> parseRepeated(parseEnumCase);
-            let endLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenCurlyRight, List#{"'case'", "'pub'"});
+            s |> parseToken(TokenKind.ParenCurlyLeft);
+            let cases = s |> parseRepeated(parseEnumCase);
+            let endLoc = s |> parseTokenHintWithLoc(TokenKind.ParenCurlyRight, List#{"'case'", "'pub'"});
             let loc = Location.union(startLoc, endLoc);
             ParsedAst.mkEnum(ac, name, args, cases, loc)
         })
@@ -148,20 +161,20 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "case " or "pub " then parsing will start, otherwise None is returned.
     ///
     /// Handles prefix space.
-    def parseEnumCase(tc: TC[r]): Option[ParsedAst.EnumCase] \ r + Crash = {
-        let (ac, acLocOpt) = tc |> parseAccess;
+    def parseEnumCase(s: State[r]): Option[ParsedAst.EnumCase] \ r + Crash = {
+        let (ac, acLocOpt) = s |> parseAccess;
         let caseLoc = match acLocOpt {
             case Some(acLoc) =>
-                tc !> parseWsAny |> parseKeyword("case");
+                s !> parseWsAny |> parseKeyword("case");
                 Some(acLoc)
             case None =>
-                tc !> parseWsAny |> parseKeywordOpt("case")
+                s !> parseWsAny |> parseKeywordOpt("case")
         };
         caseLoc |> map(startLoc -> {
-            let name = tc !> parseWsAny |> parseWord;
-            if (tc |> parseTokenBool(TokenKind.ParenSoftLeft)) {
-                let types = tc |> parseCommaSeq(parseType);
-                let endLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenSoftRight, List#{"letter"});
+            let name = s !> parseWsAny |> parseWord;
+            if (s |> parseTokenBool(TokenKind.ParenSoftLeft)) {
+                let types = s |> parseCommaSeq(parseType);
+                let endLoc = s |> parseTokenHintWithLoc(TokenKind.ParenSoftRight, List#{"letter"});
                 let loc = Location.union(startLoc, endLoc);
                 ParsedAst.mkEnumCase(ac, name, types, loc)
             } else {
@@ -172,12 +185,12 @@ mod ScopeGraph.Phase.Parser {
     }
 
     /// Handles prefix space.
-    def parseType(tc: TC[r]): ParsedAst.Tpe \ r + Crash = {
-        let name = tc !> parseWsAny |> parseName;
+    def parseType(s: State[r]): ParsedAst.Tpe \ r + Crash = {
+        let name = s !> parseWsAny |> parseName;
         let base = ParsedAst.Tpe.Base(name, name |> Located.getLoc);
-        if (tc |> parseTokenBool(TokenKind.ParenSquareLeft)) {
-            let args = tc |> parseCommaSeq(parseType);
-            let lastLoc = tc |> parseTokenHintWithLoc(TokenKind.ParenSquareRight, List#{"letter"});
+        if (s |> parseTokenBool(TokenKind.ParenSquareLeft)) {
+            let args = s |> parseCommaSeq(parseType);
+            let lastLoc = s |> parseTokenHintWithLoc(TokenKind.ParenSquareRight, List#{"letter"});
             let loc = Location.union(name |> Located.getLoc, lastLoc);
             ParsedAst.Tpe.App(base, args, loc)
         } else {
@@ -189,97 +202,97 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "def " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseDef(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.Def] \ r + Crash = {
-        tc |> parseKeywordOpt("def") |> map(defLoc -> {
+    def parseDef(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Def] \ r + Crash = {
+        s |> parseKeywordOpt("def") |> map(defLoc -> {
             let firstLoc = acLoc |> Option.getWithDefault(defLoc);
-            let name = tc !> parseWsAny |> parseWord;
-            let args = if (tc |> parseTokenBool(TokenKind.ParenSoftLeft)) {
-                if (tc !> parseWsAny |> parseTokenBool(TokenKind.ParenSoftRight)) {
+            let name = s !> parseWsAny |> parseWord;
+            let args = if (s |> parseTokenBool(TokenKind.ParenSoftLeft)) {
+                if (s !> parseWsAny |> parseTokenBool(TokenKind.ParenSoftRight)) {
                     Nil
                 } else {
-                    let args1 = tc |> parseCommaSeq(parseParam);
-                    tc |> parseTokenHint(TokenKind.ParenSoftRight, List#{"letter"});
+                    let args1 = s |> parseCommaSeq(parseParam);
+                    s |> parseTokenHint(TokenKind.ParenSoftRight, List#{"letter"});
                     args1
                 }
             } else Nil;
-            tc |> parseToken(TokenKind.Colon);
-            let tpe = tc |> parseType;
-            tc !> parseWsAny |> parseToken(TokenKind.Eq);
-            tc !> parseWsAny |> parseToken(TokenKind.ParenCurlyLeft);
-            let exp = tc |> parseExp;
-            let lastLoc = tc !> parseWsAny |> parseTokenWithLoc(TokenKind.ParenCurlyRight);
+            s |> parseToken(TokenKind.Colon);
+            let tpe = s |> parseType;
+            s !> parseWsAny |> parseToken(TokenKind.Eq);
+            s !> parseWsAny |> parseToken(TokenKind.ParenCurlyLeft);
+            let exp = s |> parseExp;
+            let lastLoc = s !> parseWsAny |> parseTokenWithLoc(TokenKind.ParenCurlyRight);
             let loc = Location.union(firstLoc, lastLoc);
             ParsedAst.mkDef(ac, name, args, tpe, exp, loc)
         })
     }
 
     /// Handles prefix space.
-    def parseParam(tc: TC[r]): (LocString, ParsedAst.Tpe) \ r + Crash = {
-        let name = tc !> parseWsAny |> parseWord;
-        tc |> parseToken(TokenKind.Colon);
-        let tpe = tc |> parseType;
+    def parseParam(s: State[r]): (LocString, ParsedAst.Tpe) \ r + Crash = {
+        let name = s !> parseWsAny |> parseWord;
+        s |> parseToken(TokenKind.Colon);
+        let tpe = s |> parseType;
         (name, tpe)
     }
 
     /// Handles prefix space.
-    def parseExpSimple(tc: TC[r]): (ParsedAst.Exp, Bool) \ r + Crash = {
-        tc |> parseWsAny;
-        let peeked = match tc |> VC.peek {
+    def parseExpSimple(s: State[r]): (ParsedAst.Exp, Bool) \ r + Crash = {
+        s |> parseWsAny;
+        let peeked = match s#vc |> VC.peek {
             case Some(v) => v
-            case None => tc |> errExpect(expected = "expression", "EOF", tc |> latestLoc)
+            case None => s |> errExpect(expected = "expression", "EOF", s |> latestLoc)
         };
         match peeked {
             case Token.Name(tokenName, nameLoc) =>
                 match tokenName {
                     case "let" =>
-                        tc |> VC.advance;
-                        let name = tc !> parseWsAny |> parseWord;
-                        tc !> parseWsAny |> parseToken(TokenKind.Eq);
-                        let binding = tc |> parseExp;
-                        tc !> parseWsAny |> parseToken(TokenKind.Semicolon);
-                        let body = tc |> parseExp;
+                        s#vc |> VC.advance;
+                        let name = s !> parseWsAny |> parseWord;
+                        s !> parseWsAny |> parseToken(TokenKind.Eq);
+                        let binding = s |> parseExp;
+                        s !> parseWsAny |> parseToken(TokenKind.Semicolon);
+                        let body = s |> parseExp;
                         let loc = Location.union(nameLoc, body |> Located.getLoc);
                         (ParsedAst.Exp.Let(name, binding, body, loc), true)
                     case "true" =>
-                        tc |> VC.advance;
+                        s#vc |> VC.advance;
                         (ParsedAst.Exp.Bool(true, nameLoc), false)
                     case "false" =>
-                        tc |> VC.advance;
+                        s#vc |> VC.advance;
                         (ParsedAst.Exp.Bool(false, nameLoc), false)
                     case _ =>
-                        let name = tc |> parseName;
+                        let name = s |> parseName;
                         let loc = Location.union(nameLoc, name |> Located.getLoc);
                         (ParsedAst.Exp.Name(name, loc), false)
                 }
             case Token.Int(i, loc) =>
-                tc |> VC.advance;
+                s#vc |> VC.advance;
                 (ParsedAst.Exp.Int(i, loc), false)
             case Token.ParenCurlyLeft(_) =>
-                tc |> VC.advance;
-                let exp = tc |> parseExp;
-                tc |> parseToken(TokenKind.ParenCurlyRight);
+                s#vc |> VC.advance;
+                let exp = s |> parseExp;
+                s |> parseToken(TokenKind.ParenCurlyRight);
                 (exp, false)
             case other =>
-                tc |> errExpect(expected = "expression", ToString.toString(other), other |> Token.getLoc)
+                s |> errExpect(expected = "expression", ToString.toString(other), other |> Token.getLoc)
         }
     }
 
     /// Handles prefix space.
-    def parseExp(tc: TC[r]): ParsedAst.Exp \ r + Crash = {
-        let (exp, stop) = tc |> parseExpSimple;
+    def parseExp(s: State[r]): ParsedAst.Exp \ r + Crash = {
+        let (exp, stop) = s |> parseExpSimple;
         if (stop) exp
-        else if (tc |> parseTokenBool(TokenKind.ParenSoftLeft)) {
-            if (tc !> parseWsAny |> parseTokenBool(TokenKind.ParenSoftRight)) {
+        else if (s |> parseTokenBool(TokenKind.ParenSoftLeft)) {
+            if (s !> parseWsAny |> parseTokenBool(TokenKind.ParenSoftRight)) {
                 ParsedAst.Exp.App(exp, Nil, exp |> Located.getLoc)
             } else {
-                let args = tc |> parseCommaSeq(parseExp);
-                tc !> parseWsAny |> parseToken(TokenKind.ParenSoftRight);
+                let args = s |> parseCommaSeq(parseExp);
+                s !> parseWsAny |> parseToken(TokenKind.ParenSoftRight);
                 let last = args |> List.last |> Option.getWithDefault(exp);
                 let loc = Location.union(exp |> Located.getLoc, last |> Located.getLoc);
                 ParsedAst.Exp.App(exp, args, loc)
             }
-        } else if (tc !> parseWsAny |> parseTokenBool(TokenKind.Semicolon)) {
-            let tail = tc |> parseExp;
+        } else if (s !> parseWsAny |> parseTokenBool(TokenKind.Semicolon)) {
+            let tail = s |> parseExp;
             let loc = Location.union(exp |> Located.getLoc, tail |> Located.getLoc);
             ParsedAst.Exp.Stmt(exp, tail, loc)
         } else {
@@ -291,13 +304,13 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "use " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseUse(ac: ParsedAst.Access, acLoc: Option[LocRange], tc: TC[r]): Option[ParsedAst.Use] \ r + Crash = {
-        tc |> parseKeywordOpt("use") |> map(useLoc -> {
+    def parseUse(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Use] \ r + Crash = {
+        s |> parseKeywordOpt("use") |> map(useLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(useLoc);
-            let name = tc !> parseWsAny |> parseName;
-            tc |> parseWsAny;
-            if (tc |> parseKeywordBool("as")) {
-                let renaming = tc !> parseWsAny |> parseWord;
+            let name = s !> parseWsAny |> parseName;
+            s |> parseWsAny;
+            if (s |> parseKeywordBool("as")) {
+                let renaming = s !> parseWsAny |> parseWord;
                 let loc = Location.union(startLoc, renaming |> Located.getLoc);
                 ParsedAst.mkRenamedUse(ac, name, renaming, loc)
             } else {
@@ -308,16 +321,16 @@ mod ScopeGraph.Phase.Parser {
     }
 
     /// Handles prefix space.
-    def parseName(tc: TC[r]): ParsedAst.Name \ r + Crash = {
-        tc |> parseWsAny;
-        def loop(acc) = match tc |> parseWordOpt {
+    def parseName(s: State[r]): ParsedAst.Name \ r + Crash = {
+        s |> parseWsAny;
+        def loop(acc) = match s |> parseWordOpt {
             case Some(n) =>
-                match tc |> parseTokenBool(TokenKind.Period) {
+                match s |> parseTokenBool(TokenKind.Period) {
                     case true => loop(n :: acc)
                     case false => ParsedAst.mkName(acc |> List.reverse, n)
                 }
             case None =>
-                ParsedAst.mkName(acc |> List.reverse, tc |> parseWord)
+                ParsedAst.mkName(acc |> List.reverse, s |> parseWord)
         };
         loop(Nil)
     }
@@ -326,10 +339,10 @@ mod ScopeGraph.Phase.Parser {
     /// `f` does not need to handle prefix space.
     ///
     /// Handles prefix space.
-    def parseCommaSeq(f: TC[r] -> t \ ef, tc: TC[r]): List[t] \ ef + r = {
+    def parseCommaSeq(f: State[r] -> t \ ef, s: State[r]): List[t] \ ef + r = {
         def loop(acc) = {
-            let x = tc !> parseWsAny |> f;
-            if (tc !> parseWsAny |> parseTokenBool(TokenKind.Comma)) {
+            let x = s !> parseWsAny |> f;
+            if (s !> parseWsAny |> parseTokenBool(TokenKind.Comma)) {
                 loop(x :: acc)
             } else {
                 (x :: acc) |> List.reverse
@@ -342,9 +355,9 @@ mod ScopeGraph.Phase.Parser {
     /// `f` does not need to handle prefix space.
     ///
     /// Handles prefix space.
-    def parseRepeated(f: TC[r] -> Option[t] \ ef, tc: TC[r]): List[t] \ ef + r = {
+    def parseRepeated(f: State[r] -> Option[t] \ ef, s: State[r]): List[t] \ ef + r = {
         def loop(acc) = {
-            match tc !> parseWsAny |> f {
+            match s !> parseWsAny |> f {
                 case Some(v) => loop(v :: acc)
                 case None => acc |> List.reverse
             }
@@ -353,82 +366,82 @@ mod ScopeGraph.Phase.Parser {
     }
 
     /// DOES NOT handle prefix space.
-    def parseKeywordOpt(kw: String, tc: TC[r]): Option[LocRange] \ r = {
-        tc |> VC.collectIf(token -> match token {
+    def parseKeywordOpt(kw: String, s: State[r]): Option[LocRange] \ r = {
+        s#vc |> VC.collectIf(token -> match token {
             case Token.Name(name, loc) if name == kw => Some(loc)
             case _ => None
         })
     }
 
     /// DOES NOT handle prefix space.
-    def parseKeywordBool(kw: String, tc: TC[r]): Bool \ r = {
-        match parseKeywordOpt(kw, tc) {
+    def parseKeywordBool(kw: String, s: State[r]): Bool \ r = {
+        match parseKeywordOpt(kw, s) {
             case Some(_) => true
             case None => false
         }
     }
 
     /// DOES NOT handle prefix space.
-    def parseKeyword(kw: String, tc: TC[r]): Unit \ r + Crash = {
-        if (parseKeywordBool(kw, tc)) ()
-        else tc |> errExpect(expected = "'${kw}'", tc |> VC.peek |> peekToString, tc |> latestLoc)
+    def parseKeyword(kw: String, s: State[r]): Unit \ r + Crash = {
+        if (parseKeywordBool(kw, s)) ()
+        else s |> errExpect(expected = "'${kw}'", s#vc |> VC.peek |> peekToString, s |> latestLoc)
     }
 
     /// DOES NOT handle prefix space.
-    def parseWordOpt(tc: TC[r]): Option[LocString] \ r = {
-        tc |> VC.collectIf(token -> match token {
+    def parseWordOpt(s: State[r]): Option[LocString] \ r = {
+        s#vc |> VC.collectIf(token -> match token {
             case Token.Name(name, loc) => Some(Location.mkLocString(name, loc))
             case _ => None
         })
     }
 
     /// DOES NOT handle prefix space.
-    def parseWord(tc: TC[r]): LocString \ r + Crash = {
-        match tc |> VC.next {
+    def parseWord(s: State[r]): LocString \ r + Crash = {
+        match s#vc |> VC.next {
             case Some(Token.Name(name, loc)) => Location.mkLocString(name, loc)
-            case Some(other) => tc |> errExpect(expected = "${TokenKind.Name}", other |> ToString.toString, other |> Token.getLoc)
-            case None => tc |> errExpect(expected = "${TokenKind.Name}", None |> peekToString, tc |> latestLoc)
+            case Some(other) => s |> errExpect(expected = "${TokenKind.Name}", other |> ToString.toString, other |> Token.getLoc)
+            case None => s |> errExpect(expected = "${TokenKind.Name}", None |> peekToString, s |> latestLoc)
         }
     }
 
     /// Consumes space and comments
-    def parseWsAny(tc: TC[r]): Unit \ r =
-        tc |> VC.advanceWhile(token -> match token {
+    def parseWsAny(s: State[r]): Unit \ r =
+        s#vc |> VC.advanceWhile(token -> match token {
             case Token.Space(_) => true
             case Token.Comment(_, _) => true
             case _ => false
         })
 
     /// Handles prefix space.
-    def parseTokenWithLoc(kind: TokenKind, tc: TC[r]): LocRange \ r + Crash = {
-        tc |> parseWsAny;
-        match tc |> parseTokenOpt(kind) {
+    def parseTokenWithLoc(kind: TokenKind, s: State[r]): LocRange \ r + Crash = {
+        s |> parseWsAny;
+        match s |> parseTokenOpt(kind) {
             case Some(loc) => loc
-            case None => tc |> errExpect(
+            case None => s |> errExpect(
                 expected = kind |> ToString.toString,
-                tc |> VC.peek |> peekToString,
-                tc |> latestLoc
+                s#vc |> VC.peek |> peekToString,
+                s |> latestLoc
             )
         }
     }
 
     /// Handles prefix space.
-    def parseToken(kind: TokenKind, tc: TC[r]): Unit \ r + Crash = {
-        tc |> parseWsAny;
-        if (tc |> parseTokenBool(kind)) {
+    def parseToken(kind: TokenKind, s: State[r]): Unit \ r + Crash = {
+        s |> parseWsAny;
+        if (s |> parseTokenBool(kind)) {
             ()
         } else {
-            tc |> errExpect(
+            s |> errExpect(
                 expected = kind |> ToString.toString,
-                tc |> VC.peek |> peekToString,
-                tc |> latestLoc
+                s#vc |> VC.peek |> peekToString,
+                s |> latestLoc
             )
         }
     }
 
     /// Handles prefix space.
-    def parseTokenOpt(tk: TokenKind, tc: TC[r]): Option[LocRange] \ r = {
-        tc |>
+    def parseTokenOpt(tk: TokenKind, s: State[r]): Option[LocRange] \ r = {
+        s#vc |>
             VC.collectIf(token ->
                 if (token |> Token.getKind == tk) Some(token |> Located.getLoc)
                 else None
@@ -436,30 +449,30 @@ mod ScopeGraph.Phase.Parser {
     }
 
     /// Handles prefix space.
-    def parseTokenBool(tk: TokenKind, tc: TC[r]): Bool \ r = {
-        tc |> VC.advanceIf(Token.getKind >> Eq.eq(tk))
+    def parseTokenBool(tk: TokenKind, s: State[r]): Bool \ r = {
+        s#vc |> VC.advanceIf(Token.getKind >> Eq.eq(tk))
     }
 
     /// Handles prefix space.
-    def parseTokenHint(kind: TokenKind, hints: List[String], tc: TC[r]): Unit \ r + Crash = {
-        tc |> parseWsAny;
-        if (tc |> parseTokenBool(kind)) {
+    def parseTokenHint(kind: TokenKind, hints: List[String], s: State[r]): Unit \ r + Crash = {
+        s |> parseWsAny;
+        if (s |> parseTokenBool(kind)) {
             ()
         } else {
             let expected = "${hints |> List.join(", ")}, or ${kind}";
-            tc |> errExpect(expected = expected, tc |> VC.peek |> peekToString, tc |> latestLoc)
+            s |> errExpect(expected = expected, s#vc |> VC.peek |> peekToString, s |> latestLoc)
         }
     }
 
     /// Handles prefix space.
-    def parseTokenHintWithLoc(kind: TokenKind, hints: List[String], tc: TC[r]): LocRange \ r + Crash = {
-        tc |> parseWsAny;
-        match tc |> parseTokenOpt(kind) {
+    def parseTokenHintWithLoc(kind: TokenKind, hints: List[String], s: State[r]): LocRange \ r + Crash = {
+        s |> parseWsAny;
+        match s |> parseTokenOpt(kind) {
             case Some(loc) =>
                 loc
             case None =>
                 let expected = "${hints |> List.join(", ")}, or ${kind}";
-                tc |> errExpect(expected = expected, tc |> VC.peek |> peekToString, tc |> latestLoc)
+                s |> errExpect(expected = expected, s#vc |> VC.peek |> peekToString, s |> latestLoc)
         }
     }
 
@@ -470,11 +483,11 @@ mod ScopeGraph.Phase.Parser {
         }
     }
 
-    def latestLoc(tc: TC[r]): Location.LocRange \ r =
-        match tc |> VC.peekOrPrev {
+    def latestLoc(s: State[r]): Location.LocRange \ r =
+        match s#vc |> VC.peekOrPrev {
             case Some(loc) => loc |> Token.getLoc
             case None =>
-                let firstLoc = Location.mkLoc(line = 1, column = 1, 0);
+                let firstLoc = Location.mkLoc(line = 1, column = 1, 0, s#src);
                 Location.mkLocRange(start = firstLoc, firstLoc)
         }
 

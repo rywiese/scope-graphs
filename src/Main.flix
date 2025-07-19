@@ -3,9 +3,9 @@ def main(): Unit \ IO + Sys = run {
         case "lsp" :: Nil =>
             ScopeGraph.Lsp.runServer()
         case "example" :: Nil =>
-            discard ScopeGraph.compile("./examples/misc.txt")
+            discard ScopeGraph.compileFile("./examples/misc.txt")
         case "run" :: path :: Nil =>
-           discard ScopeGraph.compile(path)
+           discard ScopeGraph.compileFile(path)
         case _ =>
             let options = List#{
                 ("lsp", "starts LSP server"),
@@ -19,6 +19,7 @@ def main(): Unit \ IO + Sys = run {
   with ScopeGraph.Ast.Shared.Crash.runWith(println)
 
 mod ScopeGraph {
+    use ScopeGraph.Ast.Shared.Location.Source
     use ScopeGraph.Ast
     use ScopeGraph.Ast.ParsedAst
     use ScopeGraph.Ast.CheckResult
@@ -31,24 +32,24 @@ mod ScopeGraph {
     use ScopeGraph.Util.StringCursor
     use ScopeGraph.Util.VectorCursor
 
-    pub def compile(input: String): CheckResult \ Crash = {
+    pub def compile(src: Source, input: String): CheckResult \ Crash = {
         let ast = input |>
-            Lexer.lex |>
+            Lexer.lex(src) |>
             Parser.parse !>
             Sanitizer.sanitize;
         CheckResult.mk(ast)
     }
 
-    pub def compileRes(input: String): Result[Error, CheckResult] = {
-        run input |> compile |> Result.Ok with Crash.runWith(Result.Err)
+    pub def compileRes(src: Source, input: String): Result[Error, CheckResult] = {
+        run compile(src, input) |> Result.Ok with Crash.runWith(Result.Err)
     }
 
-    pub def compileUnsafe(input: String): CheckResult = {
-        run compile(input) with Crash.runUnsafe
+    pub def compileUnsafe(src: Source, input: String): CheckResult = {
+        run compile(src, input) with Crash.runUnsafe
     }
 
     pub def compileFile(path: String): CheckResult \ IO + Crash = {
-        path |> File.read |> compile
+        path |> File.read |> compile(Source.File(path))
     }
 
     pub def compileFileRes(path: String): Result[Error, CheckResult] \ IO = {

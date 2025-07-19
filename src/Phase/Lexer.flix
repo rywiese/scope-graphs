@@ -1,4 +1,6 @@
 mod ScopeGraph.Phase.Lexer {
+    use ScopeGraph.Ast.Lexed
+    use ScopeGraph.Ast.Shared.Location.Source
     use Eq.eq
 
     use ScopeGraph.Ast.Lexed.Token
@@ -13,32 +15,38 @@ mod ScopeGraph.Phase.Lexer {
     def err(msg: String, loc: Loc): t \ Crash =
         Crash.crash(Error.mkPointError(category = "Lexer", msg, loc))
 
-    pub def lex(s: String): Vector[Token] \ Crash = region rc {
-        s |> SC.mk(rc) |> lexCursor
+    pub def lex(src: Source, s: String): Lexed \ Crash = region rc {
+        let tokens = s |> SC.mk(rc) |> lexCursor(src);
+        {
+            tokens = tokens,
+            src = src
+        }
     }
 
-    def lexCursor(sc: SC[r]): Vector[Token] \ r + Crash = {
-        let s = empty(sc |> SC.getRegion, sc);
+    def lexCursor(src: Source, sc: SC[r]): Vector[Token] \ r + Crash = {
+        let s = empty(sc |> SC.getRegion, src, sc);
         lexLoop(s);
         if (sc |> SC.eof) toVector(s)
-        else err("Stuck at '${sc |> SC.peek |> escapedCharString}'", sc |> getLoc)
+        else err("Stuck at '${sc |> SC.peek |> escapedCharString}'", sc |> getLoc(s#src))
     }
 
     type alias State[r: Region] = {
         tokens = MutList[Token, r],
         sc = SC[r],
-        previousEnd = Ref[Loc, r]
+        previousEnd = Ref[Loc, r],
+        src = Source
     }
 
-    def empty(rc: Region[r], sc: SC[r]): State[r] \ r = {
+    def empty(rc: Region[r], src: Source, sc: SC[r]): State[r] \ r = {
         tokens = MutList.empty(rc),
         sc = sc,
-        previousEnd = Ref.fresh(rc, Location.mkLoc(line = 1, column = 1, 0))
+        previousEnd = Ref.fresh(rc, Location.mkLoc(line = 1, column = 1, 0, src)),
+        src = src
     }
 
     def collect(t: LocRange -> Token, s: State[r]): Unit \ r = {
         let start = s#previousEnd |> Ref.get;
-        let end = s#sc |> getLoc;
+        let end = s#sc |> getLoc(s#src);
         let range = Location.mkLocRange(start = start, end);
         Ref.put(end, s#previousEnd);
         MutList.push(t(range), s#tokens)
@@ -86,7 +94,7 @@ mod ScopeGraph.Phase.Lexer {
 
     def lexInt(s: State[r]): Unit \ r + Crash = {
         if (s#sc |> SC.peekIs(Char.isDigit, false)) {
-            let loc = s#sc |> getLoc;
+            let loc = s#sc |> getLoc(s#src);
             let intRaw = s#sc |> SC.advanceWhileAndCollect(Char.isDigit);
             let int = match Int32.fromString(intRaw) {
                 case Some(i) => i
@@ -126,11 +134,12 @@ mod ScopeGraph.Phase.Lexer {
         } else ()
     }
 
-    def getLoc(sc: SC[r]): Loc \ r =
+    def getLoc(src: Source, sc: SC[r]): Loc \ r =
         Location.mkLoc(
             line = SC.getLine(sc) + 1,
             column = SC.getColumn(sc) + 1,
-            SC.getOffset(sc)
+            SC.getOffset(sc),
+            src
         )
 
     def escapedCharString(c: Char): String = {

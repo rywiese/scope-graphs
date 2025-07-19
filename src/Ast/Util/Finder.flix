@@ -16,7 +16,11 @@ mod ScopeGraph.Ast.Util.Finder {
     use ScopeGraph.Ast.ParsedAst
     use ScopeGraph.Ast.Shared.Location.Loc
 
-    pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, scope: ParsedAst.Scope): Option[AstNode] \ ef = {
+    pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ParsedAst): Option[AstNode] \ ef = {
+        findScope(loc, visitor, ast#ast)
+    }
+
+    def findScope(loc: Loc, visitor: AstNode -> Unit \ ef, scope: ParsedAst.Scope): Option[AstNode] \ ef = {
         (loc, scope) ||> ifContained(() -> {
             visitor(AstNode.Scope(scope));
             let {
@@ -70,7 +74,7 @@ mod ScopeGraph.Ast.Util.Finder {
                 loc = _
             } = coerce(module);
             name |> findName(loc, visitor) |> orElse(() ->
-                scope |> find(loc, visitor) |> orElse(() ->
+                scope |> findScope(loc, visitor) |> orElse(() ->
                     Some(AstNode.Module(module))
                 )
             )

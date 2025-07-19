@@ -6,11 +6,12 @@ mod ScopeGraph.Lsp {
     pub struct Server[r] {
         server: LanguageServer,
         connect: LanguageClient -> Unit \ r,
-        manager: Manager[String, r]
+        manager: Manager[r]
     }
 }
 
 mod ScopeGraph.Lsp.Server {
+    use ScopeGraph.Ast.Shared.Location.Source
     use ScopeGraph.Ast.CheckResult
     use ScopeGraph.Ast.Shared.Location
     use ScopeGraph.Ast.Shared.Location.Loc
@@ -124,12 +125,13 @@ mod ScopeGraph.Lsp.Server {
                 System.err.println("documentHighlight");
                 let uri = params.getTextDocument().getUri();
                 let path = pathFromUri(uri);
+                let src = Source.File(path);
                 let highlights = match ScopeGraph.compileFileRes(path) {
                     case Result.Err(err) =>
                         logDev("compilation err", err |> ToString.toString);
                         Nil
                     case Result.Ok(cr) =>
-                        let cursor = params.getPosition() |> posToLoc;
+                        let cursor = params.getPosition() |> posToLoc(src);
                         match CheckResult.enclosingRange(cursor, cr) {
                             case None =>
                                 logDev("finder", "miss");
@@ -148,12 +150,13 @@ mod ScopeGraph.Lsp.Server {
                 System.err.println("definition");
                 let uri = params.getTextDocument().getUri();
                 let path = pathFromUri(uri);
+                let src = Source.File(path);
                 let highlights = match ScopeGraph.compileFileRes(path) {
                     case Result.Err(err) =>
                         logDev("compilation err", err |> ToString.toString);
                         Nil
                     case Result.Ok(cr) =>
-                        let cursor = params.getPosition() |> posToLoc;
+                        let cursor = params.getPosition() |> posToLoc(src);
                         match CheckResult.definition(cursor, cr) {
                             case None =>
                                 logDev("finder", "miss");
@@ -185,9 +188,9 @@ mod ScopeGraph.Lsp.Server {
         System.err.println(prefix + ": " + msg)
     }
 
-    def posToLoc(p: Position): Loc \ IO = {
+    def posToLoc(src: Source, p: Position): Loc \ IO = {
         // TODO need a (line,col) -> offset map to find the index here.
-        Location.mkLoc(line = p.getLine() + 1, column = p.getCharacter() + 1, -1)
+        Location.mkLoc(line = p.getLine() + 1, column = p.getCharacter() + 1, -1, src)
     }
 
     def toObject(x: t): JObject = {
@@ -212,7 +215,7 @@ mod ScopeGraph.Lsp.Server {
     }
 
     def locToJLoc(loc: LocRange): JRange \ IO = {
-        let {start, end} = coerce(loc);
+        let {start, end, src = _} = coerce(loc);
         // zero-based
         let jStart = new JPosition(coerce(start)#line - 1, coerce(start)#column - 1);
         let jEnd = new JPosition(coerce(end)#line - 1, coerce(end)#column - 1);

@@ -1,4 +1,15 @@
+mod ScopeGraph.Ast {
+    use ScopeGraph.Ast.ParsedAst.Scope
+    use ScopeGraph.Ast.Shared.Location.Source
+
+    pub type alias ParsedAst = {
+        ast = Scope,
+        src = Source
+    }
+}
+
 mod ScopeGraph.Ast.ParsedAst {
+    use ScopeGraph.Ast.Shared.Location.Source
     use ScopeGraph.Ast.Shared.Location.Located
     use ScopeGraph.Ast.Shared.Location.LocString
     use ScopeGraph.Ast.Shared.Location.LocRange
