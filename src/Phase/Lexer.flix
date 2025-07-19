@@ -15,12 +15,26 @@ mod ScopeGraph.Phase.Lexer {
     def err(msg: String, loc: Loc): t \ Crash =
         Crash.crash(Error.mkPointError(category = "Lexer", msg, loc))
 
-    pub def lex(src: Source, s: String): Lexed \ Crash = region rc {
-        let tokens = s |> SC.mk(rc) |> lexCursor(src);
-        {
-            tokens = tokens,
-            src = src
-        }
+    pub def lex(m: Map[Source, String]): Validation[Error, Lexed] = {
+        forA (
+            m1 <- m |> Map.mapWithKey(lexOne) |> collectErrs
+        ) yield {m  = m1}
+    }
+
+    def collectErrs(m: Map[Source, Result[Error, Vector[Token]]]): Validation[Error, Map[Source, Vector[Token]]] = {
+        (Validation.Success(Map.empty()), m) ||> Map.foldLeftWithKey((acc, src, res) -> {
+            match res {
+                case Result.Ok(scope) =>
+                    acc |> Validation.map(Map.insert(src, scope))
+                case Result.Err(err) =>
+                    Applicative.productLeft(acc, Validation.Failure(Nec.singleton(err)))
+            }
+        })
+    }
+
+    def lexOne(src: Source, s: String): Result[Error, Vector[Token]] = region rc {
+        run s |> SC.mk(rc) |> lexCursor(src) |> Result.Ok
+        with Crash.runWith(Result.Err)
     }
 
     def lexCursor(src: Source, sc: SC[r]): Vector[Token] \ r + Crash = {

@@ -3,8 +3,7 @@ mod ScopeGraph.Ast {
     use ScopeGraph.Ast.Shared.Location.Source
 
     pub type alias ParsedAst = {
-        ast = Scope,
-        src = Source
+        m = Map[Source, Scope]
     }
 }
 

@@ -1,0 +1,4 @@
+enum List[t] {
+    case Nil
+    case Cons(t, List[t])
+}

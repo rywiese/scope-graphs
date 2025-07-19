@@ -3,9 +3,8 @@ mod ScopeGraph.Lsp {
     import org.eclipse.lsp4j.services.LanguageClient
     import org.eclipse.lsp4j.services.LanguageServer
 
-    pub struct Server[r] {
-        server: LanguageServer,
-        connect: LanguageClient -> Unit \ r,
+    struct Server[r] {
+        mut client: Option[LanguageClient],
         manager: Manager[r]
     }
 }
@@ -63,17 +62,14 @@ mod ScopeGraph.Lsp.Server {
     import org.eclipse.lsp4j.services.TextDocumentService
     import org.eclipse.lsp4j.services.WorkspaceService
 
-    pub def getJServer(s: Server[r]): LanguageServer =
-        s->server
-
-    pub def connect(c: LanguageClient, s: Server[r]): Unit \ r =
-        s->connect(c)
-
-    pub def mkServer(rc: Region[r]): Server[r] \ r + IO = {
-        let client = Ref.fresh(rc, None);
-        let textDocumentService = mkTextDocumentService(client);
+    pub def mkServer(rc: Region[r]): {server = LanguageServer, connect = LanguageClient -> Unit \ r} \ r + IO = {
+        let server = new Server @ rc {
+            manager = Manager.empty(rc),
+            client = None
+        };
+        let textDocumentService = mkTextDocumentService(server);
         let workspaceService = mkWorkspaceService();
-        let server = new LanguageServer {
+        let jServer = new LanguageServer {
             def initialize(_this: LanguageServer, _params: InitializeParams): CompletableFuture \ IO = {
                 CompletableFuture.supplyAsync(new Supplier {
                     def get(_this: Supplier): JObject \ IO =
@@ -100,37 +96,38 @@ mod ScopeGraph.Lsp.Server {
                 CompletableFuture.completedFuture(null)
             }
         };
-        new Server @ rc {
-            server = server,
-            connect = c -> Ref.put(Some(c), client),
-            manager = Manager.empty(rc)
+        {
+            server = jServer,
+            connect = c -> server->client = Some(c)
         }
     }
 
-    def mkTextDocumentService(_client0: Ref[Option[LanguageClient], r]): TextDocumentService \ IO = {
+    def mkTextDocumentService(s: Server[r]): TextDocumentService \ IO = {
         new TextDocumentService {
-            def didOpen(_this: TextDocumentService, _params: DidOpenTextDocumentParams): Unit \ IO = {
-                System.err.println("didOpen")
+            def didOpen(_this: TextDocumentService, params: DidOpenTextDocumentParams): Unit \ IO + r = {
+                System.err.println("didOpen");
+                s |> addUriIfNotPresent(params.getTextDocument().getUri())
             }
             def didClose(_this: TextDocumentService, _params: DidCloseTextDocumentParams): Unit \ IO = {
                 System.err.println("didClose")
             }
-            def didChange(_this: TextDocumentService, _params: DidChangeTextDocumentParams): Unit \ IO = {
-                System.err.println("didChange")
+            def didChange(_this: TextDocumentService, params: DidChangeTextDocumentParams): Unit \ IO + r = {
+                System.err.println("didChange");
+                s |> updateUri(params.getTextDocument().getUri())
             }
-            def didSave(_this: TextDocumentService, _params: DidSaveTextDocumentParams): Unit \ IO = {
-                System.err.println("didSave")
+            def didSave(_this: TextDocumentService, params: DidSaveTextDocumentParams): Unit \ IO + r = {
+                System.err.println("didSave");
+                s |> updateUri(params.getTextDocument().getUri())
             }
-            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO = {
+            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + r = {
                 System.err.println("documentHighlight");
-                let uri = params.getTextDocument().getUri();
-                let path = pathFromUri(uri);
-                let src = Source.File(path);
-                let highlights = match ScopeGraph.compileFileRes(path) {
-                    case Result.Err(err) =>
-                        logDev("compilation err", err |> ToString.toString);
-                        Nil
-                    case Result.Ok(cr) =>
+                s |> addUriIfNotPresent(params.getTextDocument().getUri());
+                let highlights = match s->manager |> Manager.check {
+                    case Validation.Failure(_) => Nil
+                    case Validation.Success(cr) =>
+                        let uri = params.getTextDocument().getUri();
+                        let path = pathFromUri(uri);
+                        let src = Source.File(path);
                         let cursor = params.getPosition() |> posToLoc(src);
                         match CheckResult.enclosingRange(cursor, cr) {
                             case None =>
@@ -140,22 +137,20 @@ mod ScopeGraph.Lsp.Server {
                                 List#{range}
                         }
                 };
-
                 let list = highlights |>
                     map(loc -> new DocumentHighlight(loc |> locToJLoc, DocumentHighlightKind.Text)) |>
                     toArrayList;
                 CompletableFuture.completedFuture(list)
             }
-            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + r = {
                 System.err.println("definition");
                 let uri = params.getTextDocument().getUri();
-                let path = pathFromUri(uri);
-                let src = Source.File(path);
-                let highlights = match ScopeGraph.compileFileRes(path) {
-                    case Result.Err(err) =>
-                        logDev("compilation err", err |> ToString.toString);
-                        Nil
-                    case Result.Ok(cr) =>
+                s |> addUriIfNotPresent(params.getTextDocument().getUri());
+                let highlights = match s->manager |> Manager.check {
+                    case Validation.Failure(_) => Nil
+                    case Validation.Success(cr) =>
+                        let path = pathFromUri(uri);
+                        let src = Source.File(path);
                         let cursor = params.getPosition() |> posToLoc(src);
                         match CheckResult.definition(cursor, cr) {
                             case None =>
@@ -165,7 +160,6 @@ mod ScopeGraph.Lsp.Server {
                                 List#{range}
                         }
                 };
-
                 let list = highlights |>
                     map(loc -> {
                         JEither.forLeft(new JLocation(uri, loc |> locToJLoc))
@@ -176,12 +170,36 @@ mod ScopeGraph.Lsp.Server {
         }
     }
 
+    def addUriIfNotPresent(uri: String, s: Server[r]): Unit \ r + IO = {
+        addFileIfNotPresent(pathFromUri(uri), s)
+    }
+
+    def updateUri(uri: String, s: Server[r]): Unit \ r + IO = {
+        updateFile(pathFromUri(uri), s)
+    }
+
+    def addFileIfNotPresent(path: String, s: Server[r]): Unit \ r + IO = {
+        let res = run s->manager |> Manager.addFileIfNotPresent(path) with FileRead.runWithIO;
+        match res {
+            case Result.Ok(()) => ()
+            case Result.Err(err) => s |> showError(ToString.toString(err))
+        }
+    }
+
+    def updateFile(path: String, s: Server[r]): Unit \ r + IO = {
+        let res = run s->manager |> Manager.updateFile(path) with FileRead.runWithIO;
+        match res {
+            case Result.Ok(()) => ()
+            case Result.Err(err) => s |> showError(ToString.toString(err))
+        }
+    }
+
     def pathFromUri(uri: String): String \ IO = {
         Paths.get(new URI(uri)).toString()
     }
 
-    def _showError(msg: String, client0: Ref[Option[LanguageClient], r]): Unit \ IO + r = {
-        client0 |> Ref.get |> Option.forEach(c -> c.showMessage(new MessageParams(MessageType.Error, msg)))
+    def showError(msg: String, s: Server[r]): Unit \ IO + r = {
+        s->client |> Option.forEach(c -> c.showMessage(new MessageParams(MessageType.Error, msg)))
     }
 
     def logDev(prefix: String, msg: String): Unit \ IO = {

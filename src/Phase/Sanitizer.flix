@@ -1,4 +1,5 @@
 mod ScopeGraph.Phase.Sanitizer {
+    use ScopeGraph.Ast.Shared.Location.Source
     use ScopeGraph.Ast.Shared.Location.LocRange
     use ScopeGraph.Ast.Shared.Location.Located
     use Foldable.forEach
@@ -8,8 +9,24 @@ mod ScopeGraph.Phase.Sanitizer {
     use ScopeGraph.Ast.Shared.Error
     use ScopeGraph.Ast.Shared.Location.LocString
 
-    pub def sanitize(p: ParsedAst): Unit \ Crash = {
-        sanitizeScope(p#ast)
+    pub def sanitize(p: ParsedAst): Validation[Error, Unit] = {
+        p#m |> Map.map(sanitizeOne) |> collectErrs
+    }
+
+    def collectErrs(m: Map[Source, Result[Error, Unit]]): Validation[Error, Unit] = {
+        (Validation.Success(()), m) ||> Map.foldLeft((acc, res) -> {
+            match res {
+                case Result.Ok(_) =>
+                    acc
+                case Result.Err(err) =>
+                    Applicative.productLeft(acc, Validation.Failure(Nec.singleton(err)))
+            }
+        })
+    }
+
+    def sanitizeOne(s: ParsedAst.Scope): Result[Error, Unit] = {
+        run sanitizeScope(s) |> Result.Ok
+        with Crash.runWith(Result.Err)
     }
 
     def sanitizeScope(s: ParsedAst.Scope): Unit \ Crash = {

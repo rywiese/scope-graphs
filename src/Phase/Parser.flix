@@ -29,9 +29,26 @@ mod ScopeGraph.Phase.Parser {
         }
     }
 
-    pub def parse(input: Lexed): ParsedAst \ Crash = region rc {
-        let ast = input#tokens |> newState(rc, input#src) |> parseCursor;
-        {ast = ast, src = input#src}
+    pub def parse(input: Lexed): Validation[Error, ParsedAst] = {
+        forA (
+            m1 <- input#m |> Map.mapWithKey(parseOne) |> collectErrs
+        ) yield { m = m1 }
+    }
+
+    def collectErrs(m: Map[Source, Result[Error, ParsedAst.Scope]]): Validation[Error, Map[Source, ParsedAst.Scope]] = {
+        (Validation.Success(Map.empty()), m) ||> Map.foldLeftWithKey((acc, src, res) -> {
+            match res {
+                case Result.Ok(scope) =>
+                    acc |> Validation.map(Map.insert(src, scope))
+                case Result.Err(err) =>
+                    Applicative.productLeft(acc, Validation.Failure(Nec.singleton(err)))
+            }
+        })
+    }
+
+    def parseOne(src: Source, tokens: Vector[Token]): Result[Error, ParsedAst.Scope] = region rc {
+        run tokens |> newState(rc, src) |> parseCursor |> Result.Ok
+        with Crash.runWith(Result.Err)
     }
 
     def parseCursor(s: State[r]): ParsedAst.Scope \ r + Crash = {

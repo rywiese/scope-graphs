@@ -8,12 +8,12 @@ mod ScopeGraph.Lsp {
         System.err.println("Starting ScopeGraph LSP server");
         let server = Server.mkServer(rc);
         let launcher = LSPLauncher.createServerLauncher(
-            server |> Server.getJServer,
+            server#server,
             System.in,
             System.out
         );
         let client = unchecked_cast(launcher.getRemoteProxy() as LanguageClient);
-        server |> Server.connect(client);
+        server#connect(client);
         launcher.startListening().get();
         System.err.println("Stopped ScopeGraph LSP server")
     }

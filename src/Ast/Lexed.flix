@@ -3,8 +3,7 @@ mod ScopeGraph.Ast {
     use Lexed.Token
 
     pub type alias Lexed = {
-        tokens = Vector[Token],
-        src = Source
+        m = Map[Source, Vector[Token]]
     }
 
     mod Lexed {

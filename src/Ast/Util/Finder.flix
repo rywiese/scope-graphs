@@ -17,7 +17,7 @@ mod ScopeGraph.Ast.Util.Finder {
     use ScopeGraph.Ast.Shared.Location.Loc
 
     pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ParsedAst): Option[AstNode] \ ef = {
-        findScope(loc, visitor, ast#ast)
+        ast#m |> Map.get(coerce(loc)#src) |> Option.flatMap(findScope(loc, visitor))
     }
 
     def findScope(loc: Loc, visitor: AstNode -> Unit \ ef, scope: ParsedAst.Scope): Option[AstNode] \ ef = {
