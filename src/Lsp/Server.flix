@@ -10,6 +10,7 @@ mod ScopeGraph.Lsp {
 }
 
 mod ScopeGraph.Lsp.Server {
+    import org.eclipse.lsp4j.FileEvent
     use ScopeGraph.Ast.Shared.Location.Source
     use ScopeGraph.Ast.CheckResult
     use ScopeGraph.Ast.Shared.Location
@@ -35,6 +36,7 @@ mod ScopeGraph.Lsp.Server {
     import java.util.ArrayList
     import java.util.concurrent.CompletableFuture
     import java.util.function.Supplier
+    import java.util.function.Consumer
     import org.eclipse.lsp4j.{Location => JLocation}
     import org.eclipse.lsp4j.{Position => JPosition}
     import org.eclipse.lsp4j.{Range => JRange}
@@ -68,7 +70,7 @@ mod ScopeGraph.Lsp.Server {
             client = None
         };
         let textDocumentService = mkTextDocumentService(server);
-        let workspaceService = mkWorkspaceService();
+        let workspaceService = mkWorkspaceService(server);
         let jServer = new LanguageServer {
             def initialize(_this: LanguageServer, _params: InitializeParams): CompletableFuture \ IO = {
                 CompletableFuture.supplyAsync(new Supplier {
@@ -179,6 +181,7 @@ mod ScopeGraph.Lsp.Server {
     }
 
     def addFileIfNotPresent(path: String, s: Server[r]): Unit \ r + IO = {
+        logDev("Manager", "${path} is detected");
         let res = run s->manager |> Manager.addFileIfNotPresent(path) with FileRead.runWithIO;
         match res {
             case Result.Ok(()) => ()
@@ -187,6 +190,7 @@ mod ScopeGraph.Lsp.Server {
     }
 
     def updateFile(path: String, s: Server[r]): Unit \ r + IO = {
+        logDev("Manager", "${path} is changed");
         let res = run s->manager |> Manager.updateFile(path) with FileRead.runWithIO;
         match res {
             case Result.Ok(()) => ()
@@ -241,13 +245,17 @@ mod ScopeGraph.Lsp.Server {
         new JRange(jStart, jEnd)
     }
 
-    def mkWorkspaceService(): WorkspaceService \ IO = {
+    def mkWorkspaceService(s: Server[r]): WorkspaceService \ IO = {
         new WorkspaceService {
             def didChangeConfiguration(_this: WorkspaceService, _params: DidChangeConfigurationParams): Unit \ IO = {
                 System.err.println("didChangeConfiguration")
             }
-            def didChangeWatchedFiles(_this: WorkspaceService, _params: DidChangeWatchedFilesParams): Unit \ IO = {
-                System.err.println("didChangeWatchedFiles")
+            def didChangeWatchedFiles(_this: WorkspaceService, params: DidChangeWatchedFilesParams): Unit \ IO = {
+                System.err.println("didChangeWatchedFiles");
+                params.getChanges().iterator().forEachRemaining(((obj: JObject) -> {
+                    let event = unchecked_cast(obj as FileEvent);
+                    s |> updateUri(event.getUri())
+                }))
             }
         }
     }
