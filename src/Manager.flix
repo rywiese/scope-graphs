@@ -1,10 +1,11 @@
 mod ScopeGraph {
+    use ScopeGraph.Ast.Shared.Error
     use ScopeGraph.Ast.Shared.Location.Source
     use ScopeGraph.Ast.CheckResult
 
     pub struct Manager[r] {
         files: MutMap[Source, String, r],
-        mut cachedCompilation: Option[CheckResult]
+        mut cachedCompilation: Option[Validation[Error, CheckResult]]
     }
 }
 
@@ -43,9 +44,11 @@ mod ScopeGraph.Manager {
     pub def check(m: Manager[r]): Validation[Error, CheckResult] \ r = {
         match m->cachedCompilation {
             case Some(c) =>
-                Validation.Success(c)
+                c
             case None =>
-                m->files |> MutMap.toMap |> compile
+                let compilation = m->files |> MutMap.toMap |> compile;
+                m->cachedCompilation = Some(compilation);
+                compilation
         }
     }
 
