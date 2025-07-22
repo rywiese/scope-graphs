@@ -35,6 +35,8 @@ mod SG.Ast.CheckResult {
         Finder.find(loc, _ -> (), coerce(cr)#parsedAst) |> map(Located.getLoc)
     }
 
+    // Use this to test
+    // See Ast/Util/Finder
     pub def definition(loc: Loc, _cr: CheckResult[r]): Option[LocRange] = {
         let first = Location.mkLoc(line = 1, column = 1, 0, coerce(loc)#src);
         Some(Location.Loc.point(first))
