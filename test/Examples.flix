@@ -1,5 +1,5 @@
-mod ScopeGraph.Test.Examples {
-    use ScopeGraph.Manager
+mod SG.Test.Examples {
+    use SG.Manager
 
     @Test
     pub def misc(): Bool \ IO = checkOneFile("./examples/misc.flixsg")

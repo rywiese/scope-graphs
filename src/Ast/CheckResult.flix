@@ -1,4 +1,4 @@
-mod ScopeGraph.Ast {
+mod SG.Ast {
     pub enum CheckResult({
         ast = ParsedAst
     })
@@ -13,16 +13,16 @@ mod ScopeGraph.Ast {
     }
 }
 
-mod ScopeGraph.Ast.CheckResult {
+mod SG.Ast.CheckResult {
     use Functor.map
 
-    use ScopeGraph.Ast.Util.Finder
-    use ScopeGraph.Ast.Shared.Location.LocRange
-    use ScopeGraph.Ast.Shared.Location.Located
-    use ScopeGraph.Ast.Shared.Location.Loc
-    use ScopeGraph.Ast.ParsedAst.AstNode
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Ast.Shared.Location
+    use SG.Ast.Util.Finder
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.Loc
+    use SG.Ast.ParsedAst.AstNode
+    use SG.Ast.ParsedAst
+    use SG.Ast.Shared.Location
 
     pub def mk(ast: ParsedAst): CheckResult =
         CheckResult({ast = ast})

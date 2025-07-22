@@ -1,5 +1,5 @@
-mod ScopeGraph.Lsp {
-    use ScopeGraph.Manager
+mod SG.Lsp {
+    use SG.Manager
     import org.eclipse.lsp4j.services.LanguageClient
     import org.eclipse.lsp4j.services.LanguageServer
 
@@ -9,15 +9,15 @@ mod ScopeGraph.Lsp {
     }
 }
 
-mod ScopeGraph.Lsp.Server {
+mod SG.Lsp.Server {
     import org.eclipse.lsp4j.FileEvent
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Ast.CheckResult
-    use ScopeGraph.Ast.Shared.Location
-    use ScopeGraph.Ast.Shared.Location.Loc
-    use ScopeGraph.Ast.Shared.Location.Located
-    use ScopeGraph.Ast.Shared.Location.LocRange
-    use ScopeGraph.Manager
+    use SG.Ast.Shared.Location.Source
+    use SG.Ast.CheckResult
+    use SG.Ast.Shared.Location
+    use SG.Ast.Shared.Location.Loc
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Manager
 
     use Functor.map
 

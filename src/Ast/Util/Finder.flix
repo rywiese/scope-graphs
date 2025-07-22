@@ -1,20 +1,20 @@
-mod ScopeGraph.Ast.Util.Finder {
+mod SG.Ast.Util.Finder {
     import java.lang.System
 
-    use ScopeGraph.Ast.ParsedAst.Exp
-    use ScopeGraph.Ast.ParsedAst.Tpe
-    use ScopeGraph.Ast.ParsedAst.Def
-    use ScopeGraph.Ast.ParsedAst.EnumCase
-    use ScopeGraph.Ast.ParsedAst.Enum
-    use ScopeGraph.Ast.ParsedAst.TypeAlias
-    use ScopeGraph.Ast.ParsedAst.Name
-    use ScopeGraph.Ast.ParsedAst.Module
-    use ScopeGraph.Ast.ParsedAst.Use
-    use ScopeGraph.Ast.Shared.Location.Located
-    use ScopeGraph.Ast.Shared.Location.Located.getLoc
-    use ScopeGraph.Ast.ParsedAst.AstNode
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Ast.Shared.Location.Loc
+    use SG.Ast.ParsedAst.Exp
+    use SG.Ast.ParsedAst.Tpe
+    use SG.Ast.ParsedAst.Def
+    use SG.Ast.ParsedAst.EnumCase
+    use SG.Ast.ParsedAst.Enum
+    use SG.Ast.ParsedAst.TypeAlias
+    use SG.Ast.ParsedAst.Name
+    use SG.Ast.ParsedAst.Module
+    use SG.Ast.ParsedAst.Use
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.Located.getLoc
+    use SG.Ast.ParsedAst.AstNode
+    use SG.Ast.ParsedAst
+    use SG.Ast.Shared.Location.Loc
 
     pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ParsedAst): Option[AstNode] \ ef = {
         ast#m |> Map.get(coerce(loc)#src) |> Option.flatMap(findScope(loc, visitor))

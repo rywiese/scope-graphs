@@ -1,11 +1,11 @@
-mod ScopeGraph.Ast.Shared {
+mod SG.Ast.Shared {
 
     pub eff Crash {
         def crash(error: Error): Void
     }
 
     mod Crash {
-        use ScopeGraph.Ast.Shared.Error
+        use SG.Ast.Shared.Error
 
         pub def runUnsafe(f: Unit -> t \ ef): t \ ef - Crash =
             run f() with handler Crash {

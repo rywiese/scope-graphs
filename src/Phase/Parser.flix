@@ -1,22 +1,22 @@
-mod ScopeGraph.Phase.Parser {
+mod SG.Phase.Parser {
     use Foldable.forEach
     use Functor.map
 
-    use ScopeGraph.Ast.Lexed
-    use ScopeGraph.Ast.Lexed.Token
-    use ScopeGraph.Ast.Lexed.Token.TokenKind
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Ast.Shared.Access
-    use ScopeGraph.Ast.Shared.Crash
-    use ScopeGraph.Ast.Shared.Error
-    use ScopeGraph.Ast.Shared.Location
-    use ScopeGraph.Ast.Shared.Location.Located
-    use ScopeGraph.Ast.Shared.Location.LocRange
-    use ScopeGraph.Ast.Shared.Location.LocString
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Phase.Lexer
-    use ScopeGraph.Util.{VectorCursor => VC}
+    use SG.Ast.Lexed
+    use SG.Ast.Lexed.Token
+    use SG.Ast.Lexed.Token.TokenKind
+    use SG.Ast.ParsedAst
+    use SG.Ast.ParsedAst
+    use SG.Ast.Shared.Access
+    use SG.Ast.Shared.Crash
+    use SG.Ast.Shared.Error
+    use SG.Ast.Shared.Location
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Shared.Location.LocString
+    use SG.Ast.Shared.Location.Source
+    use SG.Phase.Lexer
+    use SG.Util.{VectorCursor => VC}
 
     type alias State[r: Region] = {
         vc = VC[Token, r],

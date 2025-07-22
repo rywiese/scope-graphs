@@ -1,13 +1,13 @@
-mod ScopeGraph.Phase.Sanitizer {
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Ast.Shared.Location.LocRange
-    use ScopeGraph.Ast.Shared.Location.Located
+mod SG.Phase.Sanitizer {
+    use SG.Ast.Shared.Location.Source
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Shared.Location.Located
     use Foldable.forEach
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Ast.Shared.Location
-    use ScopeGraph.Ast.Shared.Crash
-    use ScopeGraph.Ast.Shared.Error
-    use ScopeGraph.Ast.Shared.Location.LocString
+    use SG.Ast.ParsedAst
+    use SG.Ast.Shared.Location
+    use SG.Ast.Shared.Crash
+    use SG.Ast.Shared.Error
+    use SG.Ast.Shared.Location.LocString
 
     pub def sanitize(p: ParsedAst): Validation[Error, Unit] = {
         p#m |> Map.map(sanitizeOne) |> collectErrs

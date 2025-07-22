@@ -1,4 +1,4 @@
-use ScopeGraph.Manager
+use SG.Manager
 
 def main(): Unit \ IO + Sys = {
     let res = run mainAux() with Environment.runWithIO with FileRead.runWithIO;
@@ -11,7 +11,7 @@ def main(): Unit \ IO + Sys = {
 def mainAux(): Unit \ IO + FileRead + Environment = region rc {
     match Environment.getArgs() {
         case "lsp" :: Nil =>
-            ScopeGraph.Lsp.runServer()
+            SG.Lsp.runServer()
         case "run" :: path :: Nil =>
            let man = Manager.empty(rc);
             man |> Manager.addFileIfNotPresent(path);
@@ -31,19 +31,19 @@ def mainAux(): Unit \ IO + FileRead + Environment = region rc {
     }
 }
 
-mod ScopeGraph {
+mod SG {
     use Functor.map
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Ast
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Ast.CheckResult
-    use ScopeGraph.Ast.Shared.Crash
-    use ScopeGraph.Ast.Shared.Error
-    use ScopeGraph.Phase.Lexer
-    use ScopeGraph.Phase.Parser
-    use ScopeGraph.Phase.Sanitizer
-    use ScopeGraph.Util.StringCursor
-    use ScopeGraph.Util.VectorCursor
+    use SG.Ast.Shared.Location.Source
+    use SG.Ast
+    use SG.Ast.ParsedAst
+    use SG.Ast.CheckResult
+    use SG.Ast.Shared.Crash
+    use SG.Ast.Shared.Error
+    use SG.Phase.Lexer
+    use SG.Phase.Parser
+    use SG.Phase.Sanitizer
+    use SG.Util.StringCursor
+    use SG.Util.VectorCursor
 
     pub def compile(inputs: Map[Source, String]): Validation[Error, CheckResult] = {
         let res = forM (

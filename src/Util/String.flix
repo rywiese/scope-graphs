@@ -1,4 +1,4 @@
-mod ScopeGraph.Util.String {
+mod SG.Util.String {
 
     /// `n` is the max length returned INCLUDING '..'.
     ///

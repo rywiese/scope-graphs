@@ -1,5 +1,5 @@
-mod ScopeGraph.Ast.Shared.Location {
-    use ScopeGraph.Ast.Shared.Location.Located
+mod SG.Ast.Shared.Location {
+    use SG.Ast.Shared.Location.Located
 
     pub enum Source with Eq, ToString, Order {
         case File(String)
@@ -65,8 +65,8 @@ mod ScopeGraph.Ast.Shared.Location {
     }
 
     mod Loc {
-        use ScopeGraph.Ast.Shared.Location.LocRange
-        use ScopeGraph.Ast.Shared.Location
+        use SG.Ast.Shared.Location.LocRange
+        use SG.Ast.Shared.Location
 
         pub def point(l: Loc): LocRange = {
             let {line, column, index, src} = coerce(l);
@@ -194,7 +194,7 @@ mod ScopeGraph.Ast.Shared.Location {
     }
 
     mod LocString {
-        use ScopeGraph.Ast.Shared.Location.LocRange
+        use SG.Ast.Shared.Location.LocRange
 
         pub def getString(s: LocString): String =
             coerce(s)#s

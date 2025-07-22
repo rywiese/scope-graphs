@@ -1,7 +1,7 @@
-mod ScopeGraph {
-    use ScopeGraph.Ast.Shared.Error
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Ast.CheckResult
+mod SG {
+    use SG.Ast.Shared.Error
+    use SG.Ast.Shared.Location.Source
+    use SG.Ast.CheckResult
 
     pub struct Manager[r] {
         files: MutMap[Source, String, r],
@@ -9,16 +9,16 @@ mod ScopeGraph {
     }
 }
 
-mod ScopeGraph.Manager {
-    use ScopeGraph.Phase.Parser
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Phase.Lexer
-    use ScopeGraph.Ast.Lexed
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Ast.Shared.Error
-    use ScopeGraph.compile
-    use ScopeGraph.Ast.Shared.Crash
-    use ScopeGraph.Ast.CheckResult
+mod SG.Manager {
+    use SG.Phase.Parser
+    use SG.Ast.ParsedAst
+    use SG.Phase.Lexer
+    use SG.Ast.Lexed
+    use SG.Ast.Shared.Location.Source
+    use SG.Ast.Shared.Error
+    use SG.compile
+    use SG.Ast.Shared.Crash
+    use SG.Ast.CheckResult
 
     pub def empty(rc: Region[r]): Manager[r] \ r = {
         new Manager @ rc {

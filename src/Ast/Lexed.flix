@@ -1,5 +1,5 @@
-mod ScopeGraph.Ast {
-    use ScopeGraph.Ast.Shared.Location.Source
+mod SG.Ast {
+    use SG.Ast.Shared.Location.Source
     use Lexed.Token
 
     pub type alias Lexed = {
@@ -7,8 +7,8 @@ mod ScopeGraph.Ast {
     }
 
     mod Lexed {
-        use ScopeGraph.Ast.Shared.Location.Located
-        use ScopeGraph.Ast.Shared.Location.LocRange
+        use SG.Ast.Shared.Location.Located
+        use SG.Ast.Shared.Location.LocRange
 
         pub enum Token {
             case Int(Int32, LocRange)
@@ -29,7 +29,7 @@ mod ScopeGraph.Ast {
         }
 
         mod Token {
-            use ScopeGraph.Ast.Shared.Location.LocRange
+            use SG.Ast.Shared.Location.LocRange
 
             pub def getKind(t: Token): TokenKind = match t {
                 case Int(_, _) => TokenKind.Int
@@ -68,7 +68,7 @@ mod ScopeGraph.Ast {
             }
 
             pub def toString(t: Token): String = {
-                use ScopeGraph.Util.String.trimWithDots;
+                use SG.Util.String.trimWithDots;
                 let max = 10;
                 def wrap(s) = "'${s}'";
                 match t {

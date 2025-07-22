@@ -1,4 +1,4 @@
-mod ScopeGraph.Ast.Shared {
+mod SG.Ast.Shared {
     use Location.LocRange
     use Location.Loc
 
@@ -9,8 +9,8 @@ mod ScopeGraph.Ast.Shared {
     })
 
     mod Error {
-        use ScopeGraph.Ast.Shared.Location.Loc
-        use ScopeGraph.Ast.Shared.Location.LocRange
+        use SG.Ast.Shared.Location.Loc
+        use SG.Ast.Shared.Location.LocRange
 
         pub def mkError(category: {category = String}, msg: String, loc: LocRange): Error =
             Error({category = category#category, msg = msg, loc = Some(loc)})

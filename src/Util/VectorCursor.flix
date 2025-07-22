@@ -1,4 +1,4 @@
-mod ScopeGraph.Util {
+mod SG.Util {
 
     pub struct VectorCursor[t: Type, r: Region] {
         v: Vector[t],

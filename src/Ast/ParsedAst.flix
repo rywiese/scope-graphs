@@ -1,19 +1,19 @@
-mod ScopeGraph.Ast {
-    use ScopeGraph.Ast.ParsedAst.Scope
-    use ScopeGraph.Ast.Shared.Location.Source
+mod SG.Ast {
+    use SG.Ast.ParsedAst.Scope
+    use SG.Ast.Shared.Location.Source
 
     pub type alias ParsedAst = {
         m = Map[Source, Scope]
     }
 }
 
-mod ScopeGraph.Ast.ParsedAst {
-    use ScopeGraph.Ast.Shared.Access
-    use ScopeGraph.Ast.Shared.Location
-    use ScopeGraph.Ast.Shared.Location.Located
-    use ScopeGraph.Ast.Shared.Location.LocRange
-    use ScopeGraph.Ast.Shared.Location.LocString
-    use ScopeGraph.Ast.Shared.Location.Source
+mod SG.Ast.ParsedAst {
+    use SG.Ast.Shared.Access
+    use SG.Ast.Shared.Location
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Shared.Location.LocString
+    use SG.Ast.Shared.Location.Source
 
     pub enum Scope({
         uses = List[Use],
@@ -385,7 +385,7 @@ mod ScopeGraph.Ast.ParsedAst {
 
 
     mod Exp {
-        use ScopeGraph.Ast.Shared.Location.LocRange
+        use SG.Ast.Shared.Location.LocRange
 
         pub def getLoc(exp: Exp): LocRange = match exp {
             case Let(_, _, _, loc) => loc
@@ -403,7 +403,7 @@ mod ScopeGraph.Ast.ParsedAst {
     }
 
     mod Tpe {
-        use ScopeGraph.Ast.Shared.Location.LocRange
+        use SG.Ast.Shared.Location.LocRange
 
         pub def getLoc(t: Tpe): LocRange = match t {
             case Base(_, loc) => loc

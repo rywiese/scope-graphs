@@ -1,16 +1,16 @@
-mod ScopeGraph.Phase.Lexer {
-    use ScopeGraph.Ast.Lexed
-    use ScopeGraph.Ast.Shared.Location.Source
+mod SG.Phase.Lexer {
+    use SG.Ast.Lexed
+    use SG.Ast.Shared.Location.Source
     use Eq.eq
 
-    use ScopeGraph.Ast.Lexed.Token
-    use ScopeGraph.Ast.Shared.Location
-    use ScopeGraph.Ast.Shared.Error
-    use ScopeGraph.Ast.Shared.Crash
-    use ScopeGraph.Ast.Shared.Location.Loc
-    use ScopeGraph.Ast.Shared.Location.LocRange
-    use ScopeGraph.Ast.Shared.Location.LocString
-    use ScopeGraph.Util.{StringCursor => SC}
+    use SG.Ast.Lexed.Token
+    use SG.Ast.Shared.Location
+    use SG.Ast.Shared.Error
+    use SG.Ast.Shared.Crash
+    use SG.Ast.Shared.Location.Loc
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Shared.Location.LocString
+    use SG.Util.{StringCursor => SC}
 
     def err(msg: String, loc: Loc): t \ Crash =
         Crash.crash(Error.mkPointError(category = "Lexer", msg, loc))
