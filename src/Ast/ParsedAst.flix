@@ -8,11 +8,12 @@ mod ScopeGraph.Ast {
 }
 
 mod ScopeGraph.Ast.ParsedAst {
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Ast.Shared.Location.Located
-    use ScopeGraph.Ast.Shared.Location.LocString
-    use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Ast.Shared.Access
     use ScopeGraph.Ast.Shared.Location
+    use ScopeGraph.Ast.Shared.Location.Located
+    use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Ast.Shared.Location.LocString
+    use ScopeGraph.Ast.Shared.Location.Source
 
     pub enum Scope({
         uses = List[Use],
@@ -76,11 +77,6 @@ mod ScopeGraph.Ast.ParsedAst {
         case Name(Name, LocRange)
         case Int(Int32, LocRange)
         case Bool(Bool, LocRange)
-    }
-
-    pub enum Access with Eq, ToString {
-        case Public
-        case Private
     }
 
     pub enum Name({

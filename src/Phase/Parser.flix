@@ -1,20 +1,21 @@
 mod ScopeGraph.Phase.Parser {
-    use ScopeGraph.Ast.ParsedAst
-    use ScopeGraph.Phase.Lexer
-    use ScopeGraph.Ast.Shared.Location.Source
-    use ScopeGraph.Ast.Shared.Location.LocRange
     use Foldable.forEach
     use Functor.map
 
-    use ScopeGraph.Ast.Lexed.Token.TokenKind
-    use ScopeGraph.Ast.ParsedAst
     use ScopeGraph.Ast.Lexed
     use ScopeGraph.Ast.Lexed.Token
-    use ScopeGraph.Ast.Shared.Location
+    use ScopeGraph.Ast.Lexed.Token.TokenKind
+    use ScopeGraph.Ast.ParsedAst
+    use ScopeGraph.Ast.ParsedAst
+    use ScopeGraph.Ast.Shared.Access
     use ScopeGraph.Ast.Shared.Crash
     use ScopeGraph.Ast.Shared.Error
-    use ScopeGraph.Ast.Shared.Location.LocString
+    use ScopeGraph.Ast.Shared.Location
     use ScopeGraph.Ast.Shared.Location.Located
+    use ScopeGraph.Ast.Shared.Location.LocRange
+    use ScopeGraph.Ast.Shared.Location.LocString
+    use ScopeGraph.Ast.Shared.Location.Source
+    use ScopeGraph.Phase.Lexer
     use ScopeGraph.Util.{VectorCursor => VC}
 
     type alias State[r: Region] = {
@@ -108,11 +109,11 @@ mod ScopeGraph.Phase.Parser {
     /// Returns (_, true) if any non-space input was consumed.
     ///
     /// Handles prefix space.
-    def parseAccess(s: State[r]): (ParsedAst.Access, Option[LocRange]) \ r = {
+    def parseAccess(s: State[r]): (Access, Option[LocRange]) \ r = {
         s |> parseWsAny;
         match s |> parseKeywordOpt("pub") {
-            case Some(loc) => (ParsedAst.Access.Public, Some(loc))
-            case None => (ParsedAst.Access.Private, None)
+            case Some(loc) => (Access.Public, Some(loc))
+            case None => (Access.Private, None)
         }
     }
 
@@ -120,7 +121,7 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "mod " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseModule(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Module] \ r + Crash = {
+    def parseModule(ac: Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Module] \ r + Crash = {
         s |> parseKeywordOpt("mod") |> map(modLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(modLoc);
             let name = s !> parseWsAny |> parseName;
@@ -136,7 +137,7 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "type " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseTypeAlias(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.TypeAlias] \ r + Crash = {
+    def parseTypeAlias(ac: Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.TypeAlias] \ r + Crash = {
         s |> parseKeywordOpt("type") |> map(typeLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(typeLoc);
             s !> parseWsAny |> parseKeyword("alias");
@@ -157,7 +158,7 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "enum " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseEnum(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Enum] \ r + Crash = {
+    def parseEnum(ac: Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Enum] \ r + Crash = {
         s |> parseKeywordOpt("enum") |> map(enumLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(enumLoc);
             let name = s !> parseWsAny |> parseWord;
@@ -219,7 +220,7 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "def " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseDef(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Def] \ r + Crash = {
+    def parseDef(ac: Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Def] \ r + Crash = {
         s |> parseKeywordOpt("def") |> map(defLoc -> {
             let firstLoc = acLoc |> Option.getWithDefault(defLoc);
             let name = s !> parseWsAny |> parseWord;
@@ -321,7 +322,7 @@ mod ScopeGraph.Phase.Parser {
     /// If the cursor is at "use " then parsing will start, otherwise None is returned.
     ///
     /// DOES NOT handle prefix space.
-    def parseUse(ac: ParsedAst.Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Use] \ r + Crash = {
+    def parseUse(ac: Access, acLoc: Option[LocRange], s: State[r]): Option[ParsedAst.Use] \ r + Crash = {
         s |> parseKeywordOpt("use") |> map(useLoc -> {
             let startLoc = acLoc |> Option.getWithDefault(useLoc);
             let name = s !> parseWsAny |> parseName;
