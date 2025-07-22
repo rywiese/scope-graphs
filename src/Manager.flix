@@ -1,29 +1,32 @@
 mod SG {
+    use SG.Ast.CheckResult
     use SG.Ast.Shared.Error
     use SG.Ast.Shared.Location.Source
-    use SG.Ast.CheckResult
 
     pub struct Manager[r] {
         files: MutMap[Source, String, r],
-        mut cachedCompilation: Option[Validation[Error, CheckResult]]
+        mut cachedCompilation: Option[Validation[Error, CheckResult[r]]],
+        rc: Region[r]
     }
 }
 
 mod SG.Manager {
-    use SG.Phase.Parser
-    use SG.Ast.ParsedAst
-    use SG.Phase.Lexer
-    use SG.Ast.Lexed
-    use SG.Ast.Shared.Location.Source
-    use SG.Ast.Shared.Error
-    use SG.compile
-    use SG.Ast.Shared.Crash
     use SG.Ast.CheckResult
+    use SG.Ast.Lexed
+    use SG.Ast.ParsedAst
+    use SG.Ast.Shared.Crash
+    use SG.Ast.Shared.Error
+    use SG.Ast.Shared.Location.Source
+    use SG.Phase.Lexer
+    use SG.Phase.Parser
+    use SG.Phase.Sanitizer
+    use SG.Phase.Scoper
 
     pub def empty(rc: Region[r]): Manager[r] \ r = {
         new Manager @ rc {
             files = MutMap.empty(rc),
-            cachedCompilation = None
+            cachedCompilation = None,
+            rc = rc
         }
     }
 
@@ -41,14 +44,27 @@ mod SG.Manager {
         else updateSource(Source.File(path), FileRead.read(path), m)
     }
 
-    pub def check(m: Manager[r]): Validation[Error, CheckResult] \ r = {
+    pub def check(m: Manager[r]): Validation[Error, CheckResult[r]] \ r = {
         match m->cachedCompilation {
             case Some(c) =>
                 c
             case None =>
-                let compilation = m->files |> MutMap.toMap |> compile;
+                let compilation = m->files |> MutMap.toMap |> compile(m->rc);
                 m->cachedCompilation = Some(compilation);
                 compilation
+        }
+    }
+
+    pub def compile(rc: Region[r], inputs: Map[Source, String]): Validation[Error, CheckResult[r]] \ r = {
+        let res = forM (
+            lexed <- Lexer.lex(inputs) |> Validation.toResult;
+            parsed <- Parser.parse(lexed) |> Validation.toResult;
+            _ <- Sanitizer.sanitize(parsed) |> Validation.toResult;
+            scoped <- Scoper.resolve(rc, parsed) |> Validation.toResult
+        ) yield CheckResult.mk(parsed, scoped);
+        match res {
+            case Result.Ok(ok) => Validation.Success(ok)
+            case Result.Err(errs) => Validation.Failure(errs)
         }
     }
 

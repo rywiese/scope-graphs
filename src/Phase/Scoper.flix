@@ -7,7 +7,12 @@ mod SG.Phase.Scoper {
     use SG.Ast.ScopeGraph.Module
     use SG.Ast.ScopeGraph.Scope
     use SG.Ast.ScopeGraph.TypeAlias
+    use SG.Ast.Shared.Error
     use SG.Ast.Shared.Location.LocString
+
+    pub def resolve(_rc: Region[r], _ast: ParsedAst): Validation[Error, ScopeGraph.ScopedAst[r]] \ r = {
+        Validation.Success(unchecked_cast(null as ScopeGraph.ScopedAst[r] \ r))
+    }
 
     pub def buildScopeGraph(
         rc: Region[r],

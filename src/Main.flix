@@ -41,29 +41,9 @@ mod SG {
     use SG.Ast.Shared.Error
     use SG.Phase.Lexer
     use SG.Phase.Parser
+    use SG.Phase.Scoper
     use SG.Phase.Sanitizer
     use SG.Util.StringCursor
     use SG.Util.VectorCursor
-
-    pub def compile(inputs: Map[Source, String]): Validation[Error, CheckResult] = {
-        let res = forM (
-            lexed <- Lexer.lex(inputs) |> Validation.toResult;
-            parsed <- Parser.parse(lexed) |> Validation.toResult;
-            _ <- Sanitizer.sanitize(parsed) |> Validation.toResult
-        ) yield CheckResult.mk(parsed);
-        match res {
-            case Result.Ok(ok) => Validation.Success(ok)
-            case Result.Err(errs) => Validation.Failure(errs)
-        }
-    }
-
-    // pub def compileUnsafe(inputs: Map[Source, String]): CheckResult \ IO = {
-    //     match compile(inputs) {
-    //         case Validation.Success(v) => v
-    //         case Validation.Failure(errs) =>
-    //             foreach (err <- errs) println(err);
-    //             bug!("Compilation Failed")
-    //     }
-    // }
 
 }

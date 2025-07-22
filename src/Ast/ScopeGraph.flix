@@ -4,6 +4,10 @@ mod SG.Ast.ScopeGraph {
 
     use SG.Ast.Shared.Access
 
+    pub type alias ScopedAst[r: Region] = {
+        scope = Scope[r]
+    }
+
     pub struct Scope[r] {
         mut parent: Option[Scope[r]],
         uses: MutList[Scope[r], r],
