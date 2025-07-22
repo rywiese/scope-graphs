@@ -4,6 +4,12 @@ mod ScopeGraph.Test.Examples {
     @Test
     pub def misc(): Bool \ IO = checkOneFile("./examples/misc.flixsg")
 
+    @Test
+    pub def paper1(): Bool \ IO = checkOneFile("./examples/paper1.flixsg")
+
+    @Test
+    pub def list(): Bool \ IO = checkOneFile("./examples/list.flixsg")
+
     def checkOneFile(path: String): Bool \ IO = run region rc {
         let man = Manager.empty(rc);
         man |> Manager.addFileIfNotPresent(path);
