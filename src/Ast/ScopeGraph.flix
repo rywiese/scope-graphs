@@ -8,14 +8,14 @@ mod SG.Ast.ScopeGraph {
         scope = Scope[r]
     }
 
-    pub struct Scope[r] {
-        mut parent: Option[Scope[r]],
-        uses: MutList[Scope[r], r],
-        modules: MutList[Module[r], r],
-        aliases: MutList[TypeAlias, r],
-        enums: MutList[Enum, r],
-        defs: MutList[Def, r]
-    }
+    pub enum Scope[r: Eff]({
+        parent = Option[Scope[r]],
+        uses = MutList[Scope[r], r],
+        modules = MutList[Module[r], r],
+        aliases = MutList[TypeAlias, r],
+        enums = MutList[Enum, r],
+        defs = MutList[Def, r]
+    })
 
     pub enum Module[r: Eff]({
         ac = Access,
@@ -44,46 +44,40 @@ mod SG.Ast.ScopeGraph {
         use SG.Ast.ScopeGraph.Enum
         use SG.Ast.ScopeGraph.Module
         use SG.Ast.ScopeGraph.TypeAlias
-        use SG.Ast.ScopeGraph.Scope.setParent
+        use SG.Ast.ScopeGraph.Scope
 
-        pub def root(rc: Region[r]): Scope[r] \ r =
-            new Scope @ rc {
-                parent = None,
+        def empty(rc: Region[r], parent: Option[Scope[r]]): Scope[r] \ r =
+            Scope.Scope({
+                parent = parent,
                 uses = MutList.empty(rc),
                 modules = MutList.empty(rc),
                 aliases = MutList.empty(rc),
                 enums = MutList.empty(rc),
                 defs = MutList.empty(rc)
-            }
+            })
+
+        pub def root(rc: Region[r]): Scope[r] \ r =
+            empty(rc, None)
 
         pub def child(rc: Region[r], parent: Scope[r]): Scope[r] \ r =
-            root(rc) !> setParent(parent)
+            empty(rc, Some(parent))
 
-        def setParent(parent: Scope[r], scope: Scope[r]): Unit \ r =
-            match scope->parent {
-                case None => scope->parent = Some(parent)
-                case Some(_) => bug!("Should not modify parent once assigned")
-            }
-
-        pub def getParent(scope: Scope[r]): Option[Scope[r]] \ r = scope->parent
+        pub def getParent(scope: Scope[r]): Option[Scope[r]] = coerce(scope)#parent
 
         pub def addUses(uses: List[Scope[r]], scope: Scope[r]): Unit \ r =
-            scope->uses |> MutList.pushAll(uses)
+            coerce(scope)#uses |> MutList.pushAll(uses)
 
         pub def addModules(modules: List[Module[r]], scope: Scope[r]): Unit \ r =
-            scope->modules |> MutList.pushAll(modules)
+            coerce(scope)#modules |> MutList.pushAll(modules)
 
         pub def addAliases(aliases: List[TypeAlias], scope: Scope[r]): Unit \ r =
-            scope->aliases |> MutList.pushAll(aliases)
+            coerce(scope)#aliases |> MutList.pushAll(aliases)
 
         pub def addEnums(enums: List[Enum], scope: Scope[r]): Unit \ r =
-            scope->enums |> MutList.pushAll(enums)
+            coerce(scope)#enums |> MutList.pushAll(enums)
 
         pub def addDefs(defs: List[Def], scope: Scope[r]): Unit \ r =
-            scope->defs |> MutList.pushAll(defs)
-
-        // pub def prettyPrint(scope: Scope[r]): Unit \ IO + r =
-        //     println("parent: ${scope->parent}")
+            coerce(scope)#defs |> MutList.pushAll(defs)
 
     }
 
@@ -108,6 +102,30 @@ mod SG.Ast.ScopeGraph {
             let coerced = coerce(x);
             List.append(coerced#qualifiers, coerced#name :: Nil)
                 |> String.intercalateChar('.')
+    }
+
+    instance Coerce[Scope[r]] {
+
+        type Out = {
+            parent = Option[Scope[r]],
+            uses = MutList[Scope[r], r],
+            modules = MutList[Module[r], r],
+            aliases = MutList[TypeAlias, r],
+            enums = MutList[Enum, r],
+            defs = MutList[Def, r]
+        }
+
+        pub def coerce(x: Scope[r]): {
+            parent = Option[Scope[r]],
+            uses = MutList[Scope[r], r],
+            modules = MutList[Module[r], r],
+            aliases = MutList[TypeAlias, r],
+            enums = MutList[Enum, r],
+            defs = MutList[Def, r]
+        } =
+            let Scope.Scope(r) = x;
+            r
+
     }
 
 }
