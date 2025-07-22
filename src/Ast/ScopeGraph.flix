@@ -8,18 +8,18 @@ mod SG.Ast.ScopeGraph {
         scope = Scope[r]
     }
 
-    pub enum Scope[r: Eff]({
+    pub enum Scope[r: Region]({
         parent = Option[Scope[r]],
         uses = MutList[Scope[r], r],
-        modules = MutList[Module[r], r],
+        modules = MutList[Module, r],
         aliases = MutList[TypeAlias, r],
         enums = MutList[Enum, r],
         defs = MutList[Def, r]
     })
 
-    pub enum Module[r: Eff]({
+    pub enum Module({
         ac = Access,
-        scope = Scope[r]
+        name = Name
     })
 
     pub enum TypeAlias({
@@ -67,7 +67,7 @@ mod SG.Ast.ScopeGraph {
         pub def addUses(uses: List[Scope[r]], scope: Scope[r]): Unit \ r =
             coerce(scope)#uses |> MutList.pushAll(uses)
 
-        pub def addModules(modules: List[Module[r]], scope: Scope[r]): Unit \ r =
+        pub def addModules(modules: List[Module], scope: Scope[r]): Unit \ r =
             coerce(scope)#modules |> MutList.pushAll(modules)
 
         pub def addAliases(aliases: List[TypeAlias], scope: Scope[r]): Unit \ r =
@@ -109,7 +109,7 @@ mod SG.Ast.ScopeGraph {
         type Out = {
             parent = Option[Scope[r]],
             uses = MutList[Scope[r], r],
-            modules = MutList[Module[r], r],
+            modules = MutList[Module, r],
             aliases = MutList[TypeAlias, r],
             enums = MutList[Enum, r],
             defs = MutList[Def, r]
@@ -118,7 +118,7 @@ mod SG.Ast.ScopeGraph {
         pub def coerce(x: Scope[r]): {
             parent = Option[Scope[r]],
             uses = MutList[Scope[r], r],
-            modules = MutList[Module[r], r],
+            modules = MutList[Module, r],
             aliases = MutList[TypeAlias, r],
             enums = MutList[Enum, r],
             defs = MutList[Def, r]

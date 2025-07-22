@@ -10,17 +10,20 @@ mod SG.Phase.Scoper {
     use SG.Ast.Shared.Error
     use SG.Ast.Shared.Location.LocString
 
-    pub def resolve(_rc: Region[r], _ast: ParsedAst): Validation[Error, ScopeGraph.ScopedAst[r]] \ r = {
-        Validation.Success(unchecked_cast(null as ScopeGraph.ScopedAst[r] \ r))
+    pub def resolve(rc: Region[r], ast: ParsedAst): Validation[Error, ScopeGraph.ScopedAst[r]] \ r = {
+        Validation.Success({scope = buildScopeGraph(rc, ast)})
     }
 
     pub def buildScopeGraph(
         rc: Region[r],
-        parsedAst: ParsedAst.Scope
+        parsedAst: ParsedAst
     ): ScopeGraph.Scope[r] \ r =
         let root = ScopeGraph.Scope.root(rc);
         let dag = buildScopeDag(rc, root, parsedAst);
-        root !> visitScope(rc, dag, parsedAst)
+        foreach(ast <- Map.valuesOf(parsedAst#m)) {
+            visitScope(dag, ast, root)
+        };
+        root //!> visitScope(rc, dag, parsedAst)
 
     // TODO: Name this and figure out where to put it
     def extractName(name: ParsedAst.Name): ScopeGraph.Name =
@@ -45,11 +48,14 @@ mod SG.Phase.Scoper {
     def buildScopeDag(
         rc: Region[r],
         root: ScopeGraph.Scope[r],
-        scope: ParsedAst.Scope
+        scope: ParsedAst
     ): Map[ScopeGraph.Name, ScopeGraph.Scope[r]] \ r =
-        MutMap.empty(rc)
-            !> addScopeToDag(rc, root, scope)
-            |> MutMap.toMap
+        let dag = MutMap.empty(rc);
+        foreach(ast <- Map.valuesOf(scope#m)) {
+            addScopeToDag(rc, root, ast, dag)
+        };
+            // !> addScopeToDag(rc, root, scope)
+        dag |> MutMap.toMap
 
     def addScopeToDag(
         rc: Region[rs],
@@ -75,7 +81,6 @@ mod SG.Phase.Scoper {
     // Phase 2: Adding edges
 
     def visitScope(
-        rc: Region[r],
         dag: Map[ScopeGraph.Name, ScopeGraph.Scope[r]],
         scope: ParsedAst.Scope,
         node: ScopeGraph.Scope[r]
@@ -83,7 +88,7 @@ mod SG.Phase.Scoper {
         let coerced = coerce(scope);
         node
             !> Scope.addUses(List.map(visitUse(dag), coerced#uses))
-            !> Scope.addModules(List.map(visitModule(rc, dag), coerced#modules))
+            !> Scope.addModules(List.map(visitModule, coerced#modules))
             !> Scope.addAliases(List.map(visitTypeAlias, coerced#aliases))
             !> Scope.addEnums(List.map(visitEnum, coerced#enums))
             !> Scope.addDefs(List.map(visitDef, coerced#defs));
@@ -97,15 +102,12 @@ mod SG.Phase.Scoper {
         lookupNode(name, dag)
 
     def visitModule(
-        rc: Region[r],
-        dag: Map[ScopeGraph.Name, ScopeGraph.Scope[r]],
         module: ParsedAst.Module
-    ): ScopeGraph.Module[r] \ r =
+    ): ScopeGraph.Module =
         let coerced = coerce(module);
-        let name = extractName(coerced#name);
         ScopeGraph.Module.Module({
             ac = coerced#ac,
-            scope = lookupNode(name, dag) !> visitScope(rc, dag, coerced#scope)
+            name = extractName(coerced#name)
         })
 
     def visitTypeAlias(typeAlias: ParsedAst.TypeAlias): ScopeGraph.TypeAlias =
