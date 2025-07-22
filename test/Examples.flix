@@ -2,9 +2,11 @@ mod ScopeGraph.Test.Examples {
     use ScopeGraph.Manager
 
     @Test
-    pub def misc(): Bool \ IO = run region rc {
+    pub def misc(): Bool \ IO = checkOneFile("./examples/misc.flixsg")
+
+    def checkOneFile(path: String): Bool \ IO = run region rc {
         let man = Manager.empty(rc);
-        man |> Manager.addFileIfNotPresent("./examples/misc.flixsg");
+        man |> Manager.addFileIfNotPresent(path);
         match man |> Manager.check {
             case Validation.Success(_) => true
             case Validation.Failure(errs) =>
