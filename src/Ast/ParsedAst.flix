@@ -68,11 +68,6 @@ mod ScopeGraph.Ast.ParsedAst {
         case Bool(Bool, LocRange)
     }
 
-    pub enum Access with Eq, ToString {
-        case Public
-        case Private
-    }
-
     pub enum Name({
         qualifiers = List[LocString],
         name = LocString,

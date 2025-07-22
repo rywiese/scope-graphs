@@ -1,0 +1,16 @@
+pub mod A {
+    pub def i(): Int32 = {
+        5
+    }
+}
+
+pub mod B {
+    use A
+}
+
+pub mod C {
+    use B
+    def j(): Int32 = {
+        i
+    }
+}
