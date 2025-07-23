@@ -5,7 +5,7 @@ mod SG {
 
     pub struct Manager[r] {
         files: MutMap[Source, String, r],
-        mut cachedCompilation: Option[Validation[Error, CheckResult[r]]],
+        mut cachedCompilation: Option[Validation[Error, CheckResult]],
         rc: Region[r]
     }
 }
@@ -44,23 +44,23 @@ mod SG.Manager {
         else updateSource(Source.File(path), FileRead.read(path), m)
     }
 
-    pub def check(m: Manager[r]): Validation[Error, CheckResult[r]] \ r = {
+    pub def check(m: Manager[r]): Validation[Error, CheckResult] \ r = {
         match m->cachedCompilation {
             case Some(c) =>
                 c
             case None =>
-                let compilation = m->files |> MutMap.toMap |> compile(m->rc);
+                let compilation = m->files |> MutMap.toMap |> compile;
                 m->cachedCompilation = Some(compilation);
                 compilation
         }
     }
 
-    pub def compile(rc: Region[r], inputs: Map[Source, String]): Validation[Error, CheckResult[r]] \ r = {
+    pub def compile(inputs: Map[Source, String]): Validation[Error, CheckResult] = {
         let res = forM (
             lexed <- Lexer.lex(inputs) |> Validation.toResult;
             parsed <- Parser.parse(lexed) |> Validation.toResult;
             _ <- Sanitizer.sanitize(parsed) |> Validation.toResult;
-            scoped <- Scoper.resolve(rc, parsed) |> Validation.toResult
+            scoped <- Scoper.resolve(parsed) |> Validation.toResult
         ) yield CheckResult.mk(parsed, scoped);
         match res {
             case Result.Ok(ok) => Validation.Success(ok)
