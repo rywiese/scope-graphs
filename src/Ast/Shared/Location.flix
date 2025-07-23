@@ -1,7 +1,9 @@
 mod SG.Ast.Shared.Location {
+    use Hash.combine
+    use Hash.hash
     use SG.Ast.Shared.Location.Located
 
-    pub enum Source with Eq, ToString, Order {
+    pub enum Source with Eq, ToString, Order, Hash {
         case File(String)
     }
 
@@ -27,6 +29,16 @@ mod SG.Ast.Shared.Location {
             let Loc.Loc(r) = x;
             r
         }
+    }
+
+    instance Hash[Loc] {
+        pub def hash(x: Loc): Int32 =
+            let {line, column, index, src} = coerce(x);
+            hash("Loc")
+                |> combine(hash(line))
+                |> combine(hash(column))
+                |> combine(hash(index))
+                |> combine(hash(src))
     }
 
     instance Eq[Loc] {
@@ -141,6 +153,15 @@ mod SG.Ast.Shared.Location {
         }
     }
 
+    instance Hash[LocRange] {
+        pub def hash(x: LocRange): Int32 =
+            let {start, end, src} = coerce(x);
+            hash("LocRange")
+                |> combine(hash(start))
+                |> combine(hash(end))
+                |> combine(hash(src))
+    }
+
     instance Eq[LocRange] {
         pub def eq(x: LocRange, y: LocRange): Bool = {
             let {start = startX, end = endX, src = srcX} = coerce(x);
@@ -172,6 +193,14 @@ mod SG.Ast.Shared.Location {
             let LocString.LocString(r) = x;
             r
         }
+    }
+
+    instance Hash[LocString] {
+        pub def hash(x: LocString): Int32 =
+            let {s, loc} = coerce(x);
+            hash("LocString")
+                |> combine(hash(s))
+                |> combine(hash(loc))
     }
 
     instance Located[LocString] {

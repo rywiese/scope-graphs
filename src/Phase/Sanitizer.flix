@@ -1,4 +1,8 @@
 mod SG.Phase.Sanitizer {
+    use SG.Ast.Shared.Exp
+    use SG.Ast.Shared.EnumCase
+    use SG.Ast.Shared.Tpe
+    use SG.Ast.Shared.Name
     use SG.Ast.Shared.Location.Source
     use SG.Ast.Shared.Location.LocRange
     use SG.Ast.Shared.Location.Located
@@ -64,7 +68,7 @@ mod SG.Phase.Sanitizer {
         }
     }
 
-    def sanitizeName(n: ParsedAst.Name): Unit \ Crash = {
+    def sanitizeName(n: Name): Unit \ Crash = {
         let {qualifiers, name = _, loc = _} = coerce(n);
         foreach (word <- qualifiers) assertUpper("Qualifiers must be upper case", word)
     }
@@ -86,13 +90,13 @@ mod SG.Phase.Sanitizer {
     def sanitizeTypeParams(args: List[LocString]): Unit \ Crash =
         foreach (arg <- args) assertLower("Type arguments must be lower case", arg)
 
-    def sanitizeTpe(tpe: ParsedAst.Tpe): Unit \ Crash = {
+    def sanitizeTpe(tpe: Tpe): Unit \ Crash = {
         match tpe {
-            case ParsedAst.Tpe.Base(base, _) =>
+            case Tpe.Base(base, _) =>
                 sanitizeName(base);
                 if (coerce(base)#qualifiers |> List.isEmpty) ()
                 else assertUpperName("Qualified Types must be upper case", base)
-            case ParsedAst.Tpe.App(base, ts, _) =>
+            case Tpe.App(base, ts, _) =>
                 sanitizeTpe(base);
                 foreach (t <- ts) sanitizeTpe(t)
         }
@@ -105,7 +109,7 @@ mod SG.Phase.Sanitizer {
         cases |> forEach(sanitizeCase)
     }
 
-    def sanitizeCase(c: ParsedAst.EnumCase): Unit \ Crash = {
+    def sanitizeCase(c: EnumCase): Unit \ Crash = {
         let {ac = _, name, terms, loc = _} = coerce(c);
         assertUpper("Enum cases must be upper case", name);
         foreach (term <- terms) sanitizeTpe(term)
@@ -122,28 +126,28 @@ mod SG.Phase.Sanitizer {
         sanitizeExp(exp)
     }
 
-    def sanitizeExp(exp0: ParsedAst.Exp): Unit \ Crash = {
+    def sanitizeExp(exp0: Exp): Unit \ Crash = {
         match exp0 {
-            case ParsedAst.Exp.Let(name, exp1, exp2, _) =>
+            case Exp.Let(name, exp1, exp2, _) =>
                 assertLower("let-binders must be lower case", name);
                 sanitizeExp(exp1);
                 sanitizeExp(exp2)
-            case ParsedAst.Exp.Stmt(exp1, exp2, _) =>
+            case Exp.Stmt(exp1, exp2, _) =>
                 sanitizeExp(exp1);
                 sanitizeExp(exp2)
-            case ParsedAst.Exp.App(exp, exps, _) =>
+            case Exp.App(exp, exps, _) =>
                 sanitizeExp(exp);
                 exps |> forEach(sanitizeExp)
-            case ParsedAst.Exp.Name(name, _) =>
+            case Exp.Name(name, _) =>
                 sanitizeName(name)
-            case ParsedAst.Exp.Int(_, _) =>
+            case Exp.Int(_, _) =>
                 ()
-            case ParsedAst.Exp.Bool(_, _) =>
+            case Exp.Bool(_, _) =>
                 ()
         }
     }
 
-    def assertUpperName(msg: String, name: ParsedAst.Name): Unit \ Crash =
+    def assertUpperName(msg: String, name: Name): Unit \ Crash =
         assertUpper(msg, coerce(name)#name)
 
     def assertUpper(msg: String, s: LocString): Unit \ Crash = {

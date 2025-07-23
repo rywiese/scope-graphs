@@ -1,11 +1,15 @@
 mod SG.Phase.Parser {
+    use SG.Ast.Shared.Name
+    use SG.Ast.Shared.Exp
+    use SG.Ast.Shared.Tpe
+    use SG.Ast.Shared.mkEnumCase
+    use SG.Ast.Shared.EnumCase
     use Foldable.forEach
     use Functor.map
 
     use SG.Ast.Lexed
     use SG.Ast.Lexed.Token
     use SG.Ast.Lexed.Token.TokenKind
-    use SG.Ast.ParsedAst
     use SG.Ast.ParsedAst
     use SG.Ast.Shared.Access
     use SG.Ast.Shared.Crash
@@ -179,7 +183,7 @@ mod SG.Phase.Parser {
     /// If the cursor is at "case " or "pub " then parsing will start, otherwise None is returned.
     ///
     /// Handles prefix space.
-    def parseEnumCase(s: State[r]): Option[ParsedAst.EnumCase] \ r + Crash = {
+    def parseEnumCase(s: State[r]): Option[EnumCase] \ r + Crash = {
         let (ac, acLocOpt) = s |> parseAccess;
         let caseLoc = match acLocOpt {
             case Some(acLoc) =>
@@ -194,23 +198,23 @@ mod SG.Phase.Parser {
                 let types = s |> parseCommaSeq(parseType);
                 let endLoc = s |> parseTokenHintWithLoc(TokenKind.ParenSoftRight, List#{"letter"});
                 let loc = Location.union(startLoc, endLoc);
-                ParsedAst.mkEnumCase(ac, name, types, loc)
+                mkEnumCase(ac, name, types, loc)
             } else {
                 let loc = Location.union(startLoc, name |> Located.getLoc);
-                ParsedAst.mkEnumCase(ac, name, Nil, loc)
+                mkEnumCase(ac, name, Nil, loc)
             }
         })
     }
 
     /// Handles prefix space.
-    def parseType(s: State[r]): ParsedAst.Tpe \ r + Crash = {
+    def parseType(s: State[r]): Tpe \ r + Crash = {
         let name = s !> parseWsAny |> parseName;
-        let base = ParsedAst.Tpe.Base(name, name |> Located.getLoc);
+        let base = Tpe.Base(name, name |> Located.getLoc);
         if (s |> parseTokenBool(TokenKind.ParenSquareLeft)) {
             let args = s |> parseCommaSeq(parseType);
             let lastLoc = s |> parseTokenHintWithLoc(TokenKind.ParenSquareRight, List#{"letter"});
             let loc = Location.union(name |> Located.getLoc, lastLoc);
-            ParsedAst.Tpe.App(base, args, loc)
+            Tpe.App(base, args, loc)
         } else {
             base
         }
@@ -245,7 +249,7 @@ mod SG.Phase.Parser {
     }
 
     /// Handles prefix space.
-    def parseParam(s: State[r]): (LocString, ParsedAst.Tpe) \ r + Crash = {
+    def parseParam(s: State[r]): (LocString, Tpe) \ r + Crash = {
         let name = s !> parseWsAny |> parseWord;
         s |> parseToken(TokenKind.Colon);
         let tpe = s |> parseType;
@@ -253,7 +257,7 @@ mod SG.Phase.Parser {
     }
 
     /// Handles prefix space.
-    def parseExpSimple(s: State[r]): (ParsedAst.Exp, Bool) \ r + Crash = {
+    def parseExpSimple(s: State[r]): (Exp, Bool) \ r + Crash = {
         s |> parseWsAny;
         let peeked = match s#vc |> VC.peek {
             case Some(v) => v
@@ -270,21 +274,21 @@ mod SG.Phase.Parser {
                         s !> parseWsAny |> parseToken(TokenKind.Semicolon);
                         let body = s |> parseExp;
                         let loc = Location.union(nameLoc, body |> Located.getLoc);
-                        (ParsedAst.Exp.Let(name, binding, body, loc), true)
+                        (Exp.Let(name, binding, body, loc), true)
                     case "true" =>
                         s#vc |> VC.advance;
-                        (ParsedAst.Exp.Bool(true, nameLoc), false)
+                        (Exp.Bool(true, nameLoc), false)
                     case "false" =>
                         s#vc |> VC.advance;
-                        (ParsedAst.Exp.Bool(false, nameLoc), false)
+                        (Exp.Bool(false, nameLoc), false)
                     case _ =>
                         let name = s |> parseName;
                         let loc = Location.union(nameLoc, name |> Located.getLoc);
-                        (ParsedAst.Exp.Name(name, loc), false)
+                        (Exp.Name(name, loc), false)
                 }
             case Token.Int(i, loc) =>
                 s#vc |> VC.advance;
-                (ParsedAst.Exp.Int(i, loc), false)
+                (Exp.Int(i, loc), false)
             case Token.ParenCurlyLeft(_) =>
                 s#vc |> VC.advance;
                 let exp = s |> parseExp;
@@ -296,23 +300,23 @@ mod SG.Phase.Parser {
     }
 
     /// Handles prefix space.
-    def parseExp(s: State[r]): ParsedAst.Exp \ r + Crash = {
+    def parseExp(s: State[r]): Exp \ r + Crash = {
         let (exp, stop) = s |> parseExpSimple;
         if (stop) exp
         else if (s |> parseTokenBool(TokenKind.ParenSoftLeft)) {
             if (s !> parseWsAny |> parseTokenBool(TokenKind.ParenSoftRight)) {
-                ParsedAst.Exp.App(exp, Nil, exp |> Located.getLoc)
+                Exp.App(exp, Nil, exp |> Located.getLoc)
             } else {
                 let args = s |> parseCommaSeq(parseExp);
                 s !> parseWsAny |> parseToken(TokenKind.ParenSoftRight);
                 let last = args |> List.last |> Option.getWithDefault(exp);
                 let loc = Location.union(exp |> Located.getLoc, last |> Located.getLoc);
-                ParsedAst.Exp.App(exp, args, loc)
+                Exp.App(exp, args, loc)
             }
         } else if (s !> parseWsAny |> parseTokenBool(TokenKind.Semicolon)) {
             let tail = s |> parseExp;
             let loc = Location.union(exp |> Located.getLoc, tail |> Located.getLoc);
-            ParsedAst.Exp.Stmt(exp, tail, loc)
+            Exp.Stmt(exp, tail, loc)
         } else {
             exp
         }
@@ -339,7 +343,7 @@ mod SG.Phase.Parser {
     }
 
     /// Handles prefix space.
-    def parseName(s: State[r]): ParsedAst.Name \ r + Crash = {
+    def parseName(s: State[r]): Name \ r + Crash = {
         s |> parseWsAny;
         def loop(acc) = match s |> parseWordOpt {
             case Some(n) =>

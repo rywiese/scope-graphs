@@ -25,8 +25,8 @@ mod SG.Phase.Scoper {
             |> Map.valuesOf
             |> List.map(visitScope(Node.Top))
             |> List.fold;
-        let edges = MultiMap.empty();
-            // |> addEdgesFromScope(top);
+        let edges = MultiMap.empty()
+            |> addEdgesFromScope(top);
         { top = top, edges = edges }
 
     // Phase 1: Top scope AST
