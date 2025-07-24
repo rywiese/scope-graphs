@@ -13,7 +13,7 @@ mod SG.Ast.ScopeGraph {
     use ToString.toString
 
     pub type alias ScopedAst = {
-        top = Scope, // maybe this should be a list as well
+        topScopes = List[Scope],
         edges = MultiMap[Node, Edge]
     }
 
@@ -81,35 +81,6 @@ mod SG.Ast.ScopeGraph {
         case TypeAlias({ typeAlias = TypeAlias })
         case Enum({ eenum = Enum })
         case Def({ deff = Def })
-    }
-
-    instance SemiGroup[Scope] {
-        // TODO: maybe rethink this?
-        pub def combine(x: Scope, y: Scope): Scope =
-            let scope1 = coerce(x);
-            let scope2 = coerce(y);
-            Scope.Scope({
-                uses = scope1#uses ++ scope2#uses,
-                modules = scope1#modules ++ scope2#modules,
-                aliases = scope1#aliases ++ scope2#aliases,
-                enums = scope1#enums ++ scope2#enums,
-                defs = scope1#defs ++ scope2#defs,
-                node = if (scope1#node == scope2#node)
-                    scope1#node
-                else
-                    bug!("Cannot combine nodes of different scopes")
-            })
-    }
-
-    instance Monoid[Scope] {    
-        pub def empty(_unit: Unit): Scope = Scope.Scope({
-            uses = Nil,
-            modules = Nil,
-            aliases = Nil,
-            enums = Nil,
-            defs = Nil,
-            node = Node.Top
-        })
     }
 
     instance Coerce[Scope] {

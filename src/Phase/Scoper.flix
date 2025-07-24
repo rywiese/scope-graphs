@@ -21,13 +21,12 @@ mod SG.Phase.Scoper {
     }
 
     def visitAst(parsedAst: ParsedAst): ScopeGraph.ScopedAst =
-        let top = parsedAst#m
+        let topScopes = parsedAst#m
             |> Map.valuesOf
-            |> List.map(visitScope(Node.Top))
-            |> List.fold;
-        let edges = MultiMap.empty()
-            |> addEdgesFromScope(top);
-        { top = top, edges = edges }
+            |> List.map(visitScope(Node.Top));
+        let edges = topScopes
+            |> List.foldLeft(edges -> scope -> addEdgesFromScope(scope, edges), MultiMap.empty());
+        { topScopes = topScopes, edges = edges }
 
     // Phase 1: Top scope AST
 
@@ -92,6 +91,10 @@ mod SG.Phase.Scoper {
         let qualifiedName = coerce(coerced#name);
         let qualifiers = List.map(ls -> coerce(ls)#s, qualifiedName#qualifiers);
         let name = coerce(qualifiedName#name)#s;
+        // I don't think this logic is correct
+        // but we need some way to get the node of the module separated from the id (if present) of the thing in the module
+        // if the id is an enum (for example) then i guess `qualifiedName#name` is uppercase and this breaks
+        // maybe add an edge for both interpretations and one will be a dead end wrt reachability?
         let edge = if (LocString.isUpperCase(qualifiedName#name)) {
             Edge.Use({
                 id = None,
