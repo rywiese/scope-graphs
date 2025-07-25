@@ -92,6 +92,7 @@ mod SG.Ast.Util.Finder {
                 loc = _
             } = coerce(ta);
             tpe |> findTpe(loc, visitor) |> orElse(() ->
+                // TODO: keep drilling down into args
                 Some(AstNode.TypeAlias(ta))
             )
         })
