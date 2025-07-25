@@ -35,14 +35,14 @@ mod SG.Phase.Scoper {
             let edges = MutMap.empty(rc);
             def addEdge(scope, edge) = {
                 match MutMap.get(scope, edges) {
-                        case None => {
-                            let newList = MutList.empty(rc) !> MutList.push(edge);
-                            edges |> MutMap.put(scope, newList)
-                        }
-                        case Some(oldList) => {
-                            oldList |> MutList.push(edge)
-                        }
+                    case None => {
+                        let newList = MutList.empty(rc) !> MutList.push(edge);
+                        edges |> MutMap.put(scope, newList)
                     }
+                    case Some(oldList) => {
+                        oldList |> MutList.push(edge)
+                    }
+                }
             };
             run {
                 visitAst(ast)
