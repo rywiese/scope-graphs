@@ -29,7 +29,7 @@ mod SG.Phase.Scoper {
         Validation.Success(buildScopeGraph(ast))
     }
 
-    pub def buildScopeGraph(ast: ParsedAst): ScopeGraph =
+    def buildScopeGraph(ast: ParsedAst): ScopeGraph =
         region rc {
             let refs = MutMap.empty(rc);
             let edges = MutMap.empty(rc);
@@ -124,7 +124,7 @@ mod SG.Phase.Scoper {
             loc = _
         } = coerce(aliass);
         AddDecl.addDecl(scope, Node.Decl.TypeAlias(aliass));
-        foreach(arg <- args) AddRef.addRef(scope, Node.Ref.LocString(arg)); // decl?
+        foreach(arg <- args) AddDecl.addDecl(scope, Node.Decl.Tpe(arg));
         visitRefTpe(scope, tpe)
 
     def visitEnum(scope: Node.Scope, eenum: ParsedAst.Enum): Unit \ AddRef + AddDecl =
@@ -136,6 +136,7 @@ mod SG.Phase.Scoper {
             loc = _
         } = coerce(eenum);
         AddDecl.addDecl(scope, Node.Decl.Enum(eenum));
+        // we probably need a new scope in which to declare type vars?
         foreach(arg <- args) AddDecl.addDecl(scope, Node.Decl.Tpe(arg));
         foreach(enumCase <- cases) visitEnumCase(scope, enumCase)
 
@@ -147,7 +148,6 @@ mod SG.Phase.Scoper {
             loc = _
         } = coerce(enumCase);
         AddDecl.addDecl(scope, Node.Decl.EnumCase(enumCase));
-        // we probably need a new scope in which to declare type vars?
         foreach(term <- terms) visitRefTpe(scope, term)
 
     def visitDef(scope: Node.Scope, deff: ParsedAst.Def): Unit \ AddRef + AddDecl + AddLex =
