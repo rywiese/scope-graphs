@@ -37,6 +37,7 @@ mod SG.Ast {
             }
 
             mod Ref {
+                use SG.Ast.Shared.Location.Located.getLoc
                 use SG.Ast.ParsedAst
                 use SG.Ast.ScopeGraph.Node
                 use SG.Ast.ScopeGraph.Node.Ref
@@ -46,6 +47,15 @@ mod SG.Ast {
                         case ParsedAst.AstNode.Name(name) => Some(Ref.Name(name))
                         case ParsedAst.AstNode.Use(_uze) => None // renaming?
                         case _ => None
+                    }
+
+                pub def matches(other: Ref, this: Ref): Bool =
+                    id(this) == id(other)
+
+                pub def id(ref: Ref): String =
+                    match ref {
+                        case Ref.Name(name) => coerce(coerce(name)#name)#s
+                        case Ref.LocString(str) => coerce(str)#s
                     }
 
             }
@@ -126,17 +136,18 @@ mod SG.Ast {
         pub def findPathsFromRef(src: Node.Ref, graph: ScopeGraph): List[Node.Decl] =
             graph
                 |> scopeForRef(src)
-                |> Option.map(scope -> findPathsFromScope(scope, graph))
+                |> Option.map(scope -> findPathsFromScope(scope, src, graph))
                 |> Option.getWithDefault(List.empty())
 
-        pub def findPathsFromScope(src: Node.Scope, graph: ScopeGraph): List[Node.Decl] =
+        pub def findPathsFromScope(src: Node.Scope, matching: Node.Ref, graph: ScopeGraph): List[Node.Decl] =
             graph
                 |> edgesForScope(src)
                 |> List.flatMap(edge -> match edge {
                     case Edge.Decl(snk) => snk :: Nil
-                    case Edge.Lex(scope) => findPathsFromScope(scope, graph)
-                    case Edge.Use(scope) => findPathsFromScope(scope, graph)
+                    case Edge.Lex(scope) => findPathsFromScope(scope, matching, graph)
+                    case Edge.Use(scope) => findPathsFromScope(scope, matching, graph)
                 })
+                |> List.filter(Node.Decl.handle >> Node.Ref.matches(matching))
 
     }
 
