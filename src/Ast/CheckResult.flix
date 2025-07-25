@@ -17,17 +17,16 @@ mod SG.Ast {
 }
 
 mod SG.Ast.CheckResult {
+    use Functor.map
+    use SG.Ast.ParsedAst
+    use SG.Ast.ParsedAst.AstNode
     use SG.Ast.ScopeGraph
     use SG.Ast.ScopeGraph.Node
-    use Functor.map
-
-    use SG.Ast.Util.Finder
-    use SG.Ast.Shared.Location.LocRange
-    use SG.Ast.Shared.Location.Located
-    use SG.Ast.Shared.Location.Loc
-    use SG.Ast.ParsedAst.AstNode
-    use SG.Ast.ParsedAst
     use SG.Ast.Shared.Location
+    use SG.Ast.Shared.Location.Loc
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Util.Finder
 
     pub def mk(parsedAst: ParsedAst, scopeGraph: ScopeGraph): CheckResult =
         CheckResult({parsedAst = parsedAst, scopeGraph = scopeGraph})
