@@ -10,7 +10,7 @@ mod SG.Phase.Scoper {
     use ToString.toString
 
     eff AddRef {
-        def addRef(scope: Node.Scope, src: Node.Ref): Unit
+        def addRef(scope: Node.Scope, ref: LocString): Unit
     }
 
     eff AddLex {
@@ -170,12 +170,11 @@ mod SG.Phase.Scoper {
         match tpe {
             case ParsedAst.Tpe.Base(name, _) => {
                 let id = coerce(name)#name;
-                if (isLowerCase(id)) {
-                    // type var
+                let isTypeVar = isLowerCase(id);
+                if (isTypeVar) {
                     AddDecl.addDecl(scope, Node.Decl.Tpe(id))
                 } else {
-                    // concrete type
-                    AddRef.addRef(scope, Node.Ref.Name(name))
+                    AddRef.addRef(scope, id)
                 }
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
@@ -187,7 +186,7 @@ mod SG.Phase.Scoper {
     def visitRefTpe(scope: Node.Scope, tpe: ParsedAst.Tpe): Unit \ AddRef =
         match tpe {
             case ParsedAst.Tpe.Base(name, _) => {
-                AddRef.addRef(scope, Node.Ref.Name(name))
+                AddRef.addRef(scope, coerce(name)#name)
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
                 visitRefTpe(scope, applier);
@@ -213,7 +212,7 @@ mod SG.Phase.Scoper {
                 foreach(e2 <- es) visitExp(scope, e2)
             }
             case ParsedAst.Exp.Name(name, _) => {
-                AddRef.addRef(scope, Node.Ref.Name(name))
+                AddRef.addRef(scope, coerce(name)#name)
             }
             case ParsedAst.Exp.Int(_, _) => ()
             case ParsedAst.Exp.Bool(_, _) => ()

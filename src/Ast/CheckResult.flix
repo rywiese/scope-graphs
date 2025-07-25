@@ -38,7 +38,11 @@ mod SG.Ast.CheckResult {
     pub def definition(loc: Loc, cr: CheckResult): Option[LocRange] =
         let {parsedAst = parsedAst, scopeGraph = scopeGraph} = coerce(cr);
         Finder.find(loc, _ -> (), parsedAst)
-            |> Option.flatMap(Node.Ref.fromAstNode)
+            |> Option.flatMap(node -> match node {
+                case ParsedAst.AstNode.Name(name) => Some(coerce(name)#name)
+                case ParsedAst.AstNode.Use(_uze) => None // renaming?
+                case _ => None
+            })
             |> Option.flatMap(ref -> ScopeGraph.findDecl(ref, scopeGraph))
             |> Option.map(Node.Decl.handle >> Located.getLoc)
 
