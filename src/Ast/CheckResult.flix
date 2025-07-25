@@ -18,6 +18,7 @@ mod SG.Ast {
 
 mod SG.Ast.CheckResult {
     use SG.Ast.ScopeGraph
+    use SG.Ast.ScopeGraph.Node
     use Functor.map
 
     use SG.Ast.Util.Finder
@@ -35,9 +36,11 @@ mod SG.Ast.CheckResult {
         Finder.find(loc, _ -> (), coerce(cr)#parsedAst) |> map(Located.getLoc)
     }
 
-    pub def definition(loc: Loc, _cr: CheckResult): Option[LocRange] = {
-        let first = Location.mkLoc(line = 1, column = 1, 0, coerce(loc)#src);
-        Some(Location.Loc.point(first))
-    }
+    pub def definition(loc: Loc, cr: CheckResult): Option[LocRange] =
+        let {parsedAst = parsedAst, scopeGraph = scopeGraph} = coerce(cr);
+        Finder.find(loc, _ -> (), parsedAst)
+            |> Option.flatMap(Node.Ref.fromAstNode)
+            |> Option.flatMap(ref -> ScopeGraph.findDecl(ref, scopeGraph))
+            |> Option.map(Node.Decl.handle >> Located.getLoc)
 
 }
