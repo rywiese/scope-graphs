@@ -1,9 +1,9 @@
 mod SG.Ast.Shared.Location {
-    use Hash.combine
-    use Hash.hash
+    use Comparison.EqualTo
+    use Order.compare
     use SG.Ast.Shared.Location.Located
 
-    pub enum Source with Eq, ToString, Order, Hash {
+    pub enum Source with Eq, ToString, Order {
         case File(String)
     }
 
@@ -31,16 +31,6 @@ mod SG.Ast.Shared.Location {
         }
     }
 
-    instance Hash[Loc] {
-        pub def hash(x: Loc): Int32 =
-            let {line, column, index, src} = coerce(x);
-            hash("Loc")
-                |> combine(hash(line))
-                |> combine(hash(column))
-                |> combine(hash(index))
-                |> combine(hash(src))
-    }
-
     instance Eq[Loc] {
         pub def eq(x: Loc, y: Loc): Bool = {
             let {line = lineX, column = columnX, index = indexX, src = srcX} = coerce(x);
@@ -51,6 +41,23 @@ mod SG.Ast.Shared.Location {
                 indexX == indexY
             } else {
                 lineX == lineY and columnX == columnY
+            }
+        }
+    }
+
+    instance Order[Loc] {
+        pub def compare(x: Loc, y: Loc): Comparison = {
+            let {line = lineX, column = columnX, index = indexX, src = srcX} = coerce(x);
+            let {line = lineY, column = columnY, index = indexY, src = srcY} = coerce(y);
+            match compare(srcX, srcY) {
+                case EqualTo => match compare(lineX, lineY) {
+                    case EqualTo => match compare(columnX, columnY) {
+                        case EqualTo => compare(indexX, indexY)
+                        case c => c
+                    }
+                    case c => c
+                }
+                case c => c
             }
         }
     }
@@ -153,20 +160,25 @@ mod SG.Ast.Shared.Location {
         }
     }
 
-    instance Hash[LocRange] {
-        pub def hash(x: LocRange): Int32 =
-            let {start, end, src} = coerce(x);
-            hash("LocRange")
-                |> combine(hash(start))
-                |> combine(hash(end))
-                |> combine(hash(src))
-    }
-
     instance Eq[LocRange] {
         pub def eq(x: LocRange, y: LocRange): Bool = {
             let {start = startX, end = endX, src = srcX} = coerce(x);
             let {start = startY, end = endY, src = srcY} = coerce(y);
             startX == startY and endX == endY and srcX == srcY
+        }
+    }
+
+    instance Order[LocRange] {
+        pub def compare(x: LocRange, y: LocRange): Comparison = {
+            let {start = startX, end = endX, src = srcX} = coerce(x);
+            let {start = startY, end = endY, src = srcY} = coerce(y);
+            match compare(srcX, srcY) {
+                case EqualTo => match compare(startX, startY) {
+                    case EqualTo => compare(endX, endY)
+                    case c => c
+                }
+                case c => c
+            }
         }
     }
 
@@ -193,14 +205,6 @@ mod SG.Ast.Shared.Location {
             let LocString.LocString(r) = x;
             r
         }
-    }
-
-    instance Hash[LocString] {
-        pub def hash(x: LocString): Int32 =
-            let {s, loc} = coerce(x);
-            hash("LocString")
-                |> combine(hash(s))
-                |> combine(hash(loc))
     }
 
     instance Located[LocString] {
