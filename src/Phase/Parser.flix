@@ -1,16 +1,15 @@
 mod SG.Phase.Parser {
-    use SG.Ast.Shared.Name
-    use SG.Ast.Shared.Exp
-    use SG.Ast.Shared.Tpe
-    use SG.Ast.Shared.mkEnumCase
-    use SG.Ast.Shared.EnumCase
     use Foldable.forEach
     use Functor.map
-
     use SG.Ast.Lexed
     use SG.Ast.Lexed.Token
     use SG.Ast.Lexed.Token.TokenKind
     use SG.Ast.ParsedAst
+    use SG.Ast.ParsedAst.EnumCase
+    use SG.Ast.ParsedAst.Exp
+    use SG.Ast.ParsedAst.mkEnumCase
+    use SG.Ast.ParsedAst.Name
+    use SG.Ast.ParsedAst.Tpe
     use SG.Ast.Shared.Access
     use SG.Ast.Shared.Crash
     use SG.Ast.Shared.Error

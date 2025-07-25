@@ -1,15 +1,15 @@
 mod SG.Ast {
-    use SG.Ast.ScopeGraph.ScopedAst
+    use SG.Ast.ScopeGraph
 
     pub enum CheckResult({
         parsedAst = ParsedAst,
-        ast = ScopedAst
+        scopeGraph = ScopeGraph
     })
 
     instance Coerce[CheckResult] {
-        type Out = {parsedAst = ParsedAst, ast = ScopedAst}
+        type Out = {parsedAst = ParsedAst, scopeGraph = ScopeGraph}
 
-        pub def coerce(x: CheckResult): {parsedAst = ParsedAst, ast = ScopedAst} = {
+        pub def coerce(x: CheckResult): {parsedAst = ParsedAst, scopeGraph = ScopeGraph} = {
             let CheckResult.CheckResult(r) = x;
             r
         }
@@ -17,7 +17,7 @@ mod SG.Ast {
 }
 
 mod SG.Ast.CheckResult {
-    use SG.Ast.ScopeGraph.ScopedAst
+    use SG.Ast.ScopeGraph
     use Functor.map
 
     use SG.Ast.Util.Finder
@@ -28,8 +28,8 @@ mod SG.Ast.CheckResult {
     use SG.Ast.ParsedAst
     use SG.Ast.Shared.Location
 
-    pub def mk(parsedAst: ParsedAst, ast: ScopedAst): CheckResult =
-        CheckResult({parsedAst = parsedAst, ast = ast})
+    pub def mk(parsedAst: ParsedAst, scopeGraph: ScopeGraph): CheckResult =
+        CheckResult({parsedAst = parsedAst, scopeGraph = scopeGraph})
 
     pub def enclosingRange(loc: Loc, cr: CheckResult): Option[LocRange] = {
         Finder.find(loc, _ -> (), coerce(cr)#parsedAst) |> map(Located.getLoc)

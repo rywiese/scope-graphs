@@ -5,16 +5,16 @@ mod SG.Ast.Util.Finder {
     use SG.Ast.ParsedAst.AstNode
     use SG.Ast.ParsedAst.Def
     use SG.Ast.ParsedAst.Enum
+    use SG.Ast.ParsedAst.EnumCase
+    use SG.Ast.ParsedAst.Exp
     use SG.Ast.ParsedAst.Module
+    use SG.Ast.ParsedAst.Name
+    use SG.Ast.ParsedAst.Tpe
     use SG.Ast.ParsedAst.TypeAlias
     use SG.Ast.ParsedAst.Use
-    use SG.Ast.Shared.EnumCase
-    use SG.Ast.Shared.Exp
     use SG.Ast.Shared.Location.Loc
     use SG.Ast.Shared.Location.Located
     use SG.Ast.Shared.Location.Located.getLoc
-    use SG.Ast.Shared.Name
-    use SG.Ast.Shared.Tpe
 
     pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ParsedAst): Option[AstNode] \ ef = {
         ast#m |> Map.get(coerce(loc)#src) |> Option.flatMap(findScope(loc, visitor))
