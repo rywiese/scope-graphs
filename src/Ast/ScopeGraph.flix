@@ -1,10 +1,11 @@
 mod SG.Ast {
+    use SG.Ast.ScopeGraph.Edge
     use SG.Ast.ScopeGraph.Node
     use SG.Ast.Shared.Location.LocString
 
     pub enum ScopeGraph({
         refs = Map[LocString, Node.Scope],
-        edges = Map[Node.Scope, List[ScopeGraph.Edge]]
+        edges = Map[Node.Scope, List[Edge]]
     })
 
     mod ScopeGraph {

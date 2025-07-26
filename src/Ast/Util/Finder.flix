@@ -16,6 +16,8 @@ mod SG.Ast.Util.Finder {
     use SG.Ast.Shared.Location.Located
     use SG.Ast.Shared.Location.Located.getLoc
 
+    // worth formalizing what this does
+    // finds the smallest/leafiest node that this loc is contained by?
     pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ParsedAst): Option[AstNode] \ ef = {
         ast#m |> Map.get(coerce(loc)#src) |> Option.flatMap(findScope(loc, visitor))
     }
@@ -87,14 +89,23 @@ mod SG.Ast.Util.Finder {
             let {
                 ac = _,
                 name = _,
-                args = _,
+                args,
                 tpe,
                 loc = _
             } = coerce(ta);
             tpe |> findTpe(loc, visitor) |> orElse(() ->
-                // TODO: keep drilling down into args
-                Some(AstNode.TypeAlias(ta))
-            )
+                args
+                    |> List.filter(contains(loc))
+                    |> List.head
+                    |> Option.map(str ->
+                        AstNode.Name(Name.Name({
+                            qualifiers = List.empty(),
+                            name = str,
+                            loc = coerce(str)#loc
+                        }))
+                    )
+                    |> orElse(() -> Some(AstNode.TypeAlias(ta))
+            ))
         })
     }
 
