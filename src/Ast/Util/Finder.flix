@@ -94,6 +94,7 @@ mod SG.Ast.Util.Finder {
                 loc = _
             } = coerce(ta);
             tpe |> findTpe(loc, visitor) |> orElse(() ->
+                // Maybe pull this into a separate function (and visit the name?)
                 args
                     |> List.filter(contains(loc))
                     |> List.head

@@ -78,6 +78,8 @@ mod SG.Ast {
             case Decl(Node.Decl)
         }
 
+        type alias Path = List[Edge]
+
         def refs(graph: ScopeGraph): Map[LocString, Node.Scope] =
             let ScopeGraph({ refs, edges = _ }) = graph;
             refs
@@ -98,25 +100,31 @@ mod SG.Ast {
                 |> Option.getWithDefault(List.empty())
 
         pub def findDecl(src: LocString, graph: ScopeGraph): Option[Node.Decl] =
-            findPathsFromStr(src, graph)
-                |> List.head
-                // TODO: choose
-
-        pub def findPathsFromStr(src: LocString, graph: ScopeGraph): List[Node.Decl] =
             graph
                 |> scopeOf(src)
-                |> Option.map(scope -> findPathsFromScope(scope, src, graph))
+                |> Option.map(scope -> findPaths(scope, src, graph))
                 |> Option.getWithDefault(List.empty())
+                // |> List.sortWith(???) // TODO: ordering of paths
+                |> List.filterMap(path -> match List.last(path) {
+                    case Some(Edge.Decl(decl)) => Some(decl)
+                    case _ => None
+                })
+                |> List.head // this maybe should be a fold that stops when we've found exactly one and fails if we find too many
 
-        pub def findPathsFromScope(src: Node.Scope, matching: LocString, graph: ScopeGraph): List[Node.Decl] =
+        def findPaths(src: Node.Scope, tgt: LocString, graph: ScopeGraph): List[Path] =
             graph
                 |> outgoingEdges(src)
-                |> List.flatMap(edge -> match edge {
-                    case Edge.Decl(snk) => snk :: Nil
-                    case Edge.Lex(scope) => findPathsFromScope(scope, matching, graph)
-                    case Edge.Use(scope) => findPathsFromScope(scope, matching, graph)
+                |> List.flatMap(edge -> {
+                    match edge {
+                        case Edge.Decl(decl) => if (Node.Decl.handle(decl) == tgt) {
+                            (edge :: Nil) :: Nil
+                        } else {
+                            Nil
+                        }
+                        case Edge.Lex(scope) => findPaths(scope, tgt, graph) |> List.map(path -> edge :: path)
+                        case Edge.Use(scope) => findPaths(scope, tgt, graph) |> List.map(path -> edge :: path)
+                    }
                 })
-                |> List.filter(decl -> Node.Decl.handle(decl) == matching)
 
     }
 
