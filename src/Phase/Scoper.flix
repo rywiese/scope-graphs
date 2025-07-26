@@ -1,28 +1,32 @@
 mod SG.Phase.Scoper {
+    use EnterScope.enterScope // note evidence of non fully qualified use?
+    use MarkDecl.markDecl
+    use MarkRef.markRef
+    use MarkUse.markUse
     use SG.Ast.ParsedAst
     use SG.Ast.ParsedAst.Module.Module
-    use SG.Ast.Shared.Error
-    use SG.Ast.Shared.Location.LocString
-    use SG.Ast.Shared.Location.LocString.isLowerCase
     use SG.Ast.ScopeGraph
     use SG.Ast.ScopeGraph.Edge
     use SG.Ast.ScopeGraph.Node
+    use SG.Ast.Shared.Error
+    use SG.Ast.Shared.Location.LocString
+    use SG.Ast.Shared.Location.LocString.isLowerCase
     use ToString.toString
 
-    eff AddRef {
-        def addRef(scope: Node.Scope, ref: LocString): Unit
+    eff EnterScope {
+        def enterScope(enter: Node.Scope -> Node.Scope): Unit
     }
 
-    eff AddLex {
-        def addLex(scope: Node.Scope, parent: Node.Scope): Unit
+    eff MarkRef {
+        def markRef(ref: LocString): Unit
     }
 
-    eff AddUse {
-        def addUse(scope: Node.Scope, used: Node.Scope): Unit
+    eff MarkUse {
+        def markUse(used: Node.Scope): Unit
     }
 
-    eff AddDecl {
-        def addDecl(scope: Node.Scope, decl: Node.Decl): Unit
+    eff MarkDecl {
+        def markDecl(decl: Node.Decl): Unit
     }
 
     pub def resolve(ast: ParsedAst): Validation[Error, ScopeGraph] = {
@@ -31,13 +35,14 @@ mod SG.Phase.Scoper {
 
     def buildScopeGraph(ast: ParsedAst): ScopeGraph =
         region rc {
+            let scope = Ref.fresh(rc, Node.Scope.Top);
             let refs = MutMap.empty(rc);
             let edges = MutMap.empty(rc);
-            def addEdge(scope, edge) = {
-                match MutMap.get(scope, edges) {
+            def addEdge(node, edge) = {
+                match MutMap.get(node, edges) {
                     case None => {
                         let newList = MutList.empty(rc) !> MutList.push(edge);
-                        edges |> MutMap.put(scope, newList)
+                        edges |> MutMap.put(node, newList)
                     }
                     case Some(oldList) => {
                         oldList |> MutList.push(edge)
@@ -46,24 +51,27 @@ mod SG.Phase.Scoper {
             };
             run {
                 visitAst(ast)
-            } with handler AddRef {
-                def addRef(scope, ref, resume) = {
-                    refs |> MutMap.put(ref, scope);
+            } with handler EnterScope {
+                def enterScope(enter, resume) = {
+                    let parent = Ref.get(scope);
+                    let child = enter(parent);
+                    Ref.put(child, scope);
+                    addEdge(child, Edge.Lex(parent));
                     resume(())
                 }
-            } with handler AddLex {
-                def addLex(scope, parent, resume) = {
-                    addEdge(scope, Edge.Lex(parent));
+            } with handler MarkRef {
+                def markRef(ref, resume) = {
+                    refs |> MutMap.put(ref, Ref.get(scope));
                     resume(())
                 }
-            } with handler AddUse {
-                def addUse(scope, used, resume) = {
-                    addEdge(scope, Edge.Use(used));
+            } with handler MarkUse {
+                def markUse(used, resume) = {
+                    addEdge(Ref.get(scope), Edge.Use(used));
                     resume(())
                 }
-            } with handler AddDecl {
-                def addDecl(scope, decl, resume) = {
-                    addEdge(scope, Edge.Decl(decl));
+            } with handler MarkDecl {
+                def markDecl(decl, resume) = {
+                    addEdge(Ref.get(scope), Edge.Decl(decl));
                     resume(())
                 }
             };
@@ -75,10 +83,10 @@ mod SG.Phase.Scoper {
             })
         }
 
-    def visitAst(ast: ParsedAst): Unit \ AddRef + AddLex + AddUse + AddDecl =
-        foreach(astScope <- Map.valuesOf(ast#m)) visitScope(Node.Scope.Top, astScope)
+    def visitAst(ast: ParsedAst): Unit \ EnterScope + MarkRef + MarkUse + MarkDecl =
+        foreach(scope <- Map.valuesOf(ast#m)) visitScope(scope)
 
-    def visitScope(scope: Node.Scope, astScope: ParsedAst.Scope): Unit \ AddRef + AddLex + AddUse + AddDecl =
+    def visitScope(scope: ParsedAst.Scope): Unit \ EnterScope + MarkRef + MarkUse + MarkDecl =
         let {
             uses,
             modules,
@@ -86,14 +94,14 @@ mod SG.Phase.Scoper {
             enums,
             defs,
             loc = _
-        } = coerce(astScope);
-        foreach(uze <- uses) visitUse(scope, uze);
-        foreach(module <- modules) visitModule(scope, module);
-        foreach(aliass <- aliases) visitAlias(scope, aliass);
-        foreach(eenum <- enums) visitEnum(scope, eenum);
-        foreach(deff <- defs) visitDef(scope, deff)
+        } = coerce(scope);
+        foreach(uze <- uses) visitUse(uze);
+        foreach(module <- modules) visitModule(module);
+        foreach(aliass <- aliases) visitAlias(aliass);
+        foreach(eenum <- enums) visitEnum(eenum);
+        foreach(deff <- defs) visitDef(deff)
 
-    def visitUse(scope: Node.Scope, uze: ParsedAst.Use): Unit \ AddUse =
+    def visitUse(uze: ParsedAst.Use): Unit \ MarkUse =
         let {
             ac = _,
             name,
@@ -101,21 +109,20 @@ mod SG.Phase.Scoper {
             loc = _
         } = coerce(uze);
         let used = Node.Scope.fromFullyQualified(name);
-        AddUse.addUse(scope, used)
+        markUse(used)
 
-    def visitModule(scope: Node.Scope, module: ParsedAst.Module): Unit \ AddRef + AddLex + AddUse + AddDecl =
+    def visitModule(module: ParsedAst.Module): Unit \ EnterScope + MarkRef + MarkUse + MarkDecl =
         let {
             ac = _,
             name,
-            scope = astScope,
+            scope,
             loc = _
         } = coerce(module);
-        let subScope = scope |> Node.Scope.enter(name);
-        AddDecl.addDecl(scope, Node.Decl.Module(module));
-        AddLex.addLex(subScope, scope);
-        visitScope(subScope, astScope)
+        markDecl(Node.Decl.Module(module));
+        enterScope(Node.Scope.module(name));
+        visitScope(scope)
 
-    def visitAlias(scope: Node.Scope, aliass: ParsedAst.TypeAlias): Unit \ AddRef + AddDecl =
+    def visitAlias(aliass: ParsedAst.TypeAlias): Unit \ MarkRef + MarkDecl =
         let {
             ac = _,
             name = _,
@@ -123,11 +130,11 @@ mod SG.Phase.Scoper {
             tpe,
             loc = _
         } = coerce(aliass);
-        AddDecl.addDecl(scope, Node.Decl.TypeAlias(aliass));
-        foreach(arg <- args) AddDecl.addDecl(scope, Node.Decl.Tpe(arg));
-        visitRefTpe(scope, tpe)
+        markDecl(Node.Decl.TypeAlias(aliass));
+        foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
+        visitRefTpe(tpe)
 
-    def visitEnum(scope: Node.Scope, eenum: ParsedAst.Enum): Unit \ AddRef + AddDecl =
+    def visitEnum(eenum: ParsedAst.Enum): Unit \ MarkRef + MarkDecl =
         let {
             ac = _,
             name = _,
@@ -135,22 +142,22 @@ mod SG.Phase.Scoper {
             cases,
             loc = _
         } = coerce(eenum);
-        AddDecl.addDecl(scope, Node.Decl.Enum(eenum));
+        markDecl(Node.Decl.Enum(eenum));
         // we probably need a new scope in which to declare type vars?
-        foreach(arg <- args) AddDecl.addDecl(scope, Node.Decl.Tpe(arg));
-        foreach(enumCase <- cases) visitEnumCase(scope, enumCase)
+        foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
+        foreach(enumCase <- cases) visitEnumCase(enumCase)
 
-    def visitEnumCase(scope: Node.Scope, enumCase: ParsedAst.EnumCase): Unit \ AddRef + AddDecl =
+    def visitEnumCase(enumCase: ParsedAst.EnumCase): Unit \ MarkRef + MarkDecl =
         let {
             ac = _,
             name = _,
             terms,
             loc = _
         } = coerce(enumCase);
-        AddDecl.addDecl(scope, Node.Decl.EnumCase(enumCase));
-        foreach(term <- terms) visitRefTpe(scope, term)
+        markDecl(Node.Decl.EnumCase(enumCase));
+        foreach(term <- terms) visitRefTpe(term)
 
-    def visitDef(scope: Node.Scope, deff: ParsedAst.Def): Unit \ AddRef + AddDecl + AddLex =
+    def visitDef(deff: ParsedAst.Def): Unit \ EnterScope + MarkRef + MarkDecl =
         let {
             ac = _,
             name = _,
@@ -159,60 +166,59 @@ mod SG.Phase.Scoper {
             exp,
             loc = _
         } = coerce(deff);
-        AddDecl.addDecl(scope, Node.Decl.Def(deff));
+        markDecl(Node.Decl.Def(deff));
         let argTpes = args |> List.map(arg -> match arg { case (_, t) => t });
         // scope for type vars? scope for var names? are they the same?
-        foreach(argTpe <- argTpes) visitDeclTpe(scope, argTpe);
-        visitDeclTpe(scope, tpe);
-        visitExp(scope, exp)
+        foreach(argTpe <- argTpes) visitDeclTpe(argTpe);
+        visitDeclTpe(tpe);
+        visitExp(exp)
 
-    def visitDeclTpe(scope: Node.Scope, tpe: ParsedAst.Tpe): Unit \ AddRef + AddDecl =
+    def visitDeclTpe(tpe: ParsedAst.Tpe): Unit \ MarkRef + MarkDecl =
         match tpe {
             case ParsedAst.Tpe.Base(name, _) => {
                 let id = coerce(name)#name;
                 let isTypeVar = isLowerCase(id);
                 if (isTypeVar) {
-                    AddDecl.addDecl(scope, Node.Decl.Tpe(id))
+                    markDecl(Node.Decl.Tpe(id))
                 } else {
-                    AddRef.addRef(scope, id)
+                    markRef(id)
                 }
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
-                visitDeclTpe(scope, applier);
-                foreach(t <- applied) visitDeclTpe(scope, t)
+                visitDeclTpe(applier);
+                foreach(t <- applied) visitDeclTpe(t)
             }
         }
 
-    def visitRefTpe(scope: Node.Scope, tpe: ParsedAst.Tpe): Unit \ AddRef =
+    def visitRefTpe(tpe: ParsedAst.Tpe): Unit \ MarkRef =
         match tpe {
             case ParsedAst.Tpe.Base(name, _) => {
-                AddRef.addRef(scope, coerce(name)#name)
+                markRef(coerce(name)#name)
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
-                visitRefTpe(scope, applier);
-                foreach(t <- applied) visitRefTpe(scope, t)
+                visitRefTpe(applier);
+                foreach(t <- applied) visitRefTpe(t)
             }
         }
 
-    def visitExp(scope: Node.Scope, exp: ParsedAst.Exp): Unit \ AddRef + AddDecl + AddLex =
+    def visitExp(exp: ParsedAst.Exp): Unit \ EnterScope + MarkRef + MarkDecl =
         match exp {
             case ParsedAst.Exp.Let(id, binding, rest, _) => {
-                visitExp(scope, binding);
-                let childScope = scope |> Node.Scope.letBind(coerce(id)#s);
-                AddLex.addLex(childScope, scope);
-                AddDecl.addDecl(childScope, Node.Decl.Id(id));
-                visitExp(childScope, rest)
+                visitExp(binding);
+                enterScope(Node.Scope.letBind(coerce(id)#s));
+                markDecl(Node.Decl.Id(id));
+                visitExp(rest)
             }
             case ParsedAst.Exp.Stmt(e1, e2, _) => {
-                visitExp(scope, e1);
-                visitExp(scope, e2)
+                visitExp(e1);
+                visitExp(e2)
             }
             case ParsedAst.Exp.App(e1, es, _) => {
-                visitExp(scope, e1);
-                foreach(e2 <- es) visitExp(scope, e2)
+                visitExp(e1);
+                foreach(e2 <- es) visitExp(e2)
             }
             case ParsedAst.Exp.Name(name, _) => {
-                AddRef.addRef(scope, coerce(name)#name)
+                markRef(coerce(name)#name)
             }
             case ParsedAst.Exp.Int(_, _) => ()
             case ParsedAst.Exp.Bool(_, _) => ()

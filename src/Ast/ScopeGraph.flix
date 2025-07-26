@@ -38,16 +38,16 @@ mod SG.Ast {
                 use SG.Ast.ParsedAst
                 use SG.Ast.ScopeGraph.Node.Scope
 
-                pub def enter(moduleName: ParsedAst.Name, parent: Scope): Scope =
+                pub def fromFullyQualified(moduleName: ParsedAst.Name): Scope =
+                    Scope.Top |> module(moduleName)
+
+                pub def module(moduleName: ParsedAst.Name, parent: Scope): Scope =
                     let { qualifiers, name, loc = _ } = coerce(moduleName);
                     let withQualifiers = qualifiers
                         |> List.map(qualifier -> coerce(qualifier)#s)
                         |> List.foldLeft(Scope.Module, parent);
                     let modName = coerce(name)#s;
                     Scope.Module(withQualifiers, modName)
-
-                pub def fromFullyQualified(moduleName: ParsedAst.Name): Scope =
-                    Scope.Top |> enter(moduleName)
 
                 pub def letBind(id: String, parent: Scope): Scope =
                     Scope.Let(parent, id)
