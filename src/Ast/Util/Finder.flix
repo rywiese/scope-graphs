@@ -1,4 +1,5 @@
 mod SG.Ast.Util.Finder {
+    use SG.Ast.ParsedAst.mkName
     import java.lang.System
 
     use SG.Ast.ParsedAst
@@ -94,17 +95,14 @@ mod SG.Ast.Util.Finder {
                 loc = _
             } = coerce(ta);
             tpe |> findTpe(loc, visitor) |> orElse(() ->
-                // Maybe pull this into a separate function (and visit the name?)
                 args
-                    |> List.filter(contains(loc))
-                    |> List.head
-                    |> Option.map(str ->
-                        AstNode.Name(Name.Name({
-                            qualifiers = List.empty(),
-                            name = str,
-                            loc = coerce(str)#loc
-                        }))
-                    )
+                    |> List.find(contains(loc))
+                    |> Option.map(arg -> {
+                        let name = mkName(List.empty(), arg);
+                        let locRange = coerce(name)#loc;
+                        Tpe.Base(name, locRange)
+                    })
+                    |> Option.flatMap(findTpe(loc, visitor))
                     |> orElse(() -> Some(AstNode.TypeAlias(ta))
             ))
         })
