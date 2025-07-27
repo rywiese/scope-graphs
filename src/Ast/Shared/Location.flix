@@ -214,12 +214,19 @@ mod SG.Ast.Shared.Location {
 
     instance Eq[LocString] {
         pub def eq(x: LocString, y: LocString): Bool =
-            coerce(x)#s == coerce(y)#s
+            // Is this safe???
+            // coerce(x)#s == coerce(y)#s
+            coerce(x)#s == coerce(y)#s and coerce(x)#loc == coerce(y)#loc
     }
 
     instance Order[LocString] {
         pub def compare(x: LocString, y: LocString): Comparison =
-            coerce(x)#s <=> coerce(y)#s
+            // Is this safe???
+            // coerce(x)#s <=> coerce(y)#s
+            match coerce(x)#s <=> coerce(y)#s {
+                case EqualTo => coerce(x)#loc <=> coerce(y)#loc
+                case ne => ne
+            }
     }
 
     instance ToString[LocString] {

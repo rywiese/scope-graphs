@@ -93,6 +93,9 @@ mod SG.Ast {
                         case Tpe(tpe) => tpe
                         case Id(id) => id
                     }
+
+                pub def matches(ref: LocString, decl: Decl): Bool =
+                    coerce(handle(decl))#s == coerce(ref)#s
             }
 
         }
@@ -105,11 +108,11 @@ mod SG.Ast {
 
         type alias Path = List[Edge]
 
-        def refs(graph: ScopeGraph): Map[LocString, Node.Scope] =
+        pub def refs(graph: ScopeGraph): Map[LocString, Node.Scope] =
             let ScopeGraph({ refs, edges = _ }) = graph;
             refs
 
-        def edges(graph: ScopeGraph): Map[Node.Scope, List[Edge]] =
+        pub def edges(graph: ScopeGraph): Map[Node.Scope, List[Edge]] =
             let ScopeGraph({ refs = _, edges }) = graph;
             edges
 
@@ -129,25 +132,25 @@ mod SG.Ast {
                 |> scopeOf(src)
                 |> Option.map(scope -> findPaths(scope, src, graph))
                 |> Option.getWithDefault(List.empty())
-                // !> List.forEach(path -> {
-                //     let _ = dbg("Here's a path:\n");
-                //     let _ = foreach(edge <- path) match edge {
-                //         case Edge.Lex(scope) => {
-                //             let _ = dbg("${scope},");
-                //             ()
-                //         }
-                //         case Edge.Use(scope) => {
-                //             let _ = dbg("${scope},");
-                //             ()
-                //         }
-                //         case Edge.Decl(decl) => {
-                //             let handle = Node.Decl.handle(decl);
-                //             let _ = dbg("${handle}");
-                //             ()
-                //         }
-                //     };
-                //     ()
-                // })
+                !> List.forEach(path -> {
+                    let _ = dbg("Here's a path:\n");
+                    let _ = foreach(edge <- path) match edge {
+                        case Edge.Lex(scope) => {
+                            let _ = dbg("${scope},");
+                            ()
+                        }
+                        case Edge.Use(scope) => {
+                            let _ = dbg("${scope},");
+                            ()
+                        }
+                        case Edge.Decl(decl) => {
+                            let handle = Node.Decl.handle(decl);
+                            let _ = dbg("${handle}");
+                            ()
+                        }
+                    };
+                    ()
+                })
                 // |> List.sortWith(???) // TODO: ordering of paths
                 |> List.filterMap(path -> match List.last(path) {
                     case Some(Edge.Decl(decl)) => Some(decl)
@@ -160,7 +163,7 @@ mod SG.Ast {
                 |> outgoingEdges(src)
                 |> List.flatMap(edge -> {
                     match edge {
-                        case Edge.Decl(decl) => if (Node.Decl.handle(decl) == tgt) {
+                        case Edge.Decl(decl) => if (decl |> Node.Decl.matches(tgt)) {
                             (edge :: Nil) :: Nil
                         } else {
                             Nil

@@ -1,5 +1,12 @@
 mod SG.Test.Examples {
+    use SG.Ast.Shared.Location.mkLoc
+    use SG.Ast.Shared.Location.Source
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.ParsedAst
+    use SG.Ast.ScopeGraph
+    use SG.Ast.ScopeGraph.Node
     use SG.Manager
+    use SG.Ast.Util.Finder
 
     @Test
     pub def misc(): Bool \ IO = checkOneFile("./examples/misc.flixsg")
@@ -14,7 +21,10 @@ mod SG.Test.Examples {
         let man = Manager.empty(rc);
         man |> Manager.addFileIfNotPresent(path);
         match man |> Manager.check {
-            case Validation.Success(_) => true
+            case Validation.Success(cr) =>
+                let {parsedAst = _parsedAst, scopeGraph = scopeGraph} = coerce(cr);
+                println(scopeGraph |> ScopeGraph.refs);
+                true
             case Validation.Failure(errs) =>
                 foreach (err <- errs) println(err);
                 false
