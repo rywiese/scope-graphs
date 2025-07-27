@@ -40,6 +40,10 @@ mod SG.Ast.CheckResult {
         Finder.find(loc, _ -> (), parsedAst)
             |> Option.flatMap(node -> match node {
                 case ParsedAst.AstNode.Name(name) => Some(coerce(name)#name)
+                case ParsedAst.AstNode.Tpe(tpe) => match tpe {
+                    case ParsedAst.Tpe.Base(name, _) => Some(coerce(name)#name)
+                    case ParsedAst.Tpe.App(_, _, _) => None
+                }
                 case ParsedAst.AstNode.Use(_uze) => None // renaming?
                 case _ => None
             })

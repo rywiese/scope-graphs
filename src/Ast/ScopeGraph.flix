@@ -20,8 +20,10 @@ mod SG.Ast {
 
             pub enum Scope with Eq, Order {
                 case Top
-                case Module(Scope, String)
-                case Let(Scope, String)
+                case Module(String, Scope)
+                case Alias(String, Scope)
+                case Let(String, Scope)
+                case Def(String, Scope)
             }
 
             pub enum Decl {
@@ -38,6 +40,15 @@ mod SG.Ast {
                 use SG.Ast.ParsedAst
                 use SG.Ast.ScopeGraph.Node.Scope
 
+                pub def parent(scope: Scope): Scope =
+                    match scope {
+                        case Top => Top
+                        case Module(_, parent) => parent
+                        case Alias(_, parent) => parent
+                        case Let(_, parent) => parent
+                        case Def(_, parent) => parent
+                    }
+
                 pub def fromFullyQualified(moduleName: ParsedAst.Name): Scope =
                     Scope.Top |> module(moduleName)
 
@@ -45,12 +56,10 @@ mod SG.Ast {
                     let { qualifiers, name, loc = _ } = coerce(moduleName);
                     let withQualifiers = qualifiers
                         |> List.map(qualifier -> coerce(qualifier)#s)
-                        |> List.foldLeft(Scope.Module, parent);
+                        |> List.foldLeft(s -> n -> Scope.Module(n, s), parent);
                     let modName = coerce(name)#s;
-                    Scope.Module(withQualifiers, modName)
+                    Scope.Module(modName, withQualifiers)
 
-                pub def letBind(id: String, parent: Scope): Scope =
-                    Scope.Let(parent, id)
             }
 
             mod Decl {
