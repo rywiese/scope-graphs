@@ -23,7 +23,7 @@ mod SG.Phase.Scoper {
     }
 
     eff MarkRef {
-        def markRef(ref: LocString): Unit
+        def markRef(ref: Node.Ref): Unit
     }
 
     eff MarkUse {
@@ -220,7 +220,7 @@ mod SG.Phase.Scoper {
                 if (isTypeVar) {
                     markDecl(Node.Decl.Tpe(id))
                 } else {
-                    markRef(id)
+                    markRef(Node.Ref.Tpe(id))
                 }
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
@@ -234,7 +234,7 @@ mod SG.Phase.Scoper {
     def visitRefTpe(tpe: ParsedAst.Tpe): Unit \ MarkRef =
         match tpe {
             case ParsedAst.Tpe.Base(name, _) => {
-                markRef(coerce(name)#name)
+                markRef(Node.Ref.Tpe(coerce(name)#name))
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
                 visitRefTpe(applier);
@@ -249,7 +249,7 @@ mod SG.Phase.Scoper {
             case ParsedAst.Exp.Let(id, binding, rest, _) => {
                 visitExp(binding);
                 inNewScope(Node.Scope.lett(coerce(id)#s), () -> {
-                    markDecl(Node.Decl.Id(id));
+                    markDecl(Node.Decl.Var(id));
                     visitExp(rest)
                 })
             }
@@ -264,7 +264,7 @@ mod SG.Phase.Scoper {
                 }
             }
             case ParsedAst.Exp.Name(name, _) => {
-                markRef(coerce(name)#name)
+                markRef(Node.Ref.Var(coerce(name)#name))
             }
             case ParsedAst.Exp.Int(_, _) => ()
             case ParsedAst.Exp.Bool(_, _) => ()

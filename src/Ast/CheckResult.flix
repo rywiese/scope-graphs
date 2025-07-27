@@ -39,9 +39,12 @@ mod SG.Ast.CheckResult {
         let {parsedAst = parsedAst, scopeGraph = scopeGraph} = coerce(cr);
         Finder.find(loc, _ -> (), parsedAst)
             |> Option.flatMap(node -> match node {
-                case ParsedAst.AstNode.Name(name) => Some(coerce(name)#name)
+                case ParsedAst.AstNode.Name(name) =>
+                    // We need something more specific than name i think that can distinguish between tpe vs var
+                    // Some(coerce(name)#name)
+                    ???
                 case ParsedAst.AstNode.Tpe(tpe) => match tpe {
-                    case ParsedAst.Tpe.Base(name, _) => Some(coerce(name)#name)
+                    case ParsedAst.Tpe.Base(name, _) => Some(Node.Ref.Tpe(coerce(name)#name))
                     case ParsedAst.Tpe.App(_, _, _) => None
                 }
                 case ParsedAst.AstNode.Use(_uze) => None // renaming?

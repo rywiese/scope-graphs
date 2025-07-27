@@ -4,7 +4,7 @@ mod SG.Ast {
     use SG.Ast.Shared.Location.LocString
 
     pub enum ScopeGraph({
-        refs = Map[LocString, Node.Scope],
+        refs = Map[Node.Ref, Node.Scope],
         edges = Map[Node.Scope, List[Edge]]
     })
 
@@ -15,8 +15,15 @@ mod SG.Ast {
         mod Node {
             use SG.Ast.Shared.Location.Located
             use SG.Ast.ParsedAst
+            use SG.Ast.ScopeGraph.Node
             use SG.Ast.Shared.Location.LocRange
             use SG.Ast.Shared.Location.LocString
+
+            pub enum Ref with Eq, Order, ToString {
+                case Module(LocString)
+                case Tpe(LocString)
+                case Var(LocString)
+            }
 
             pub enum Scope with Eq, Order, ToString {
                 case Top
@@ -34,7 +41,24 @@ mod SG.Ast {
                 case EnumCase(ParsedAst.EnumCase)
                 case Def(ParsedAst.Def)
                 case Tpe(LocString)
-                case Id(LocString)
+                case Var(LocString)
+            }
+
+            mod Ref {
+                use SG.Ast.ScopeGraph.Node
+                use SG.Ast.Shared.Location.LocString
+
+                pub def locString(ref: Node.Ref): LocString =
+                    match ref {
+                        case Module(str) => str
+                        case Tpe(str) => str
+                        case Var(str) => str
+                    }
+            }
+
+            instance Located[Node.Ref] {
+                pub def getLoc(x: Node.Ref): LocRange =
+                    x |> Ref.locString |> Located.getLoc
             }
 
             mod Scope {
@@ -83,19 +107,19 @@ mod SG.Ast {
                 use SG.Ast.Shared.Location.LocString
                 use SG.Ast.ScopeGraph.Node
 
-                pub def handle(decl: Decl): LocString =
+                pub def handle(decl: Decl): Node.Ref =
                     match decl {
-                        case Module(module) => coerce(coerce(module)#name)#name
-                        case TypeAlias(aliass) => coerce(aliass)#name
-                        case Enum(eenum) => coerce(eenum)#name
-                        case EnumCase(enumCase) => coerce(enumCase)#name
-                        case Def(deff) => coerce(deff)#name
-                        case Tpe(tpe) => tpe
-                        case Id(id) => id
+                        case Module(module) => Node.Ref.Module(coerce(coerce(module)#name)#name)
+                        case TypeAlias(aliass) => Node.Ref.Tpe(coerce(aliass)#name)
+                        case Enum(eenum) => Node.Ref.Tpe(coerce(eenum)#name)
+                        case EnumCase(enumCase) => Node.Ref.Var(coerce(enumCase)#name) // hmmm...
+                        case Def(deff) => Node.Ref.Var(coerce(deff)#name)
+                        case Tpe(tpe) => Node.Ref.Tpe(tpe)
+                        case Var(var) => Node.Ref.Var(var)
                     }
 
-                pub def matches(ref: LocString, decl: Decl): Bool =
-                    coerce(handle(decl))#s == coerce(ref)#s
+                pub def matches(ref: Node.Ref, decl: Decl): Bool =
+                    (handle(decl) |> Node.Ref.locString |> coerce)#s == (ref |> Node.Ref.locString |> coerce)#s
             }
 
         }
@@ -108,7 +132,7 @@ mod SG.Ast {
 
         type alias Path = List[Edge]
 
-        pub def refs(graph: ScopeGraph): Map[LocString, Node.Scope] =
+        pub def refs(graph: ScopeGraph): Map[Node.Ref, Node.Scope] =
             let ScopeGraph({ refs, edges = _ }) = graph;
             refs
 
@@ -116,7 +140,7 @@ mod SG.Ast {
             let ScopeGraph({ refs = _, edges }) = graph;
             edges
 
-        def scopeOf(str: LocString, graph: ScopeGraph): Option[Node.Scope] =
+        def scopeOf(str: Node.Ref, graph: ScopeGraph): Option[Node.Scope] =
             graph
                 |> refs
                 |> Map.get(str)
@@ -127,30 +151,11 @@ mod SG.Ast {
                 |> Map.get(scope)
                 |> Option.getWithDefault(List.empty())
 
-        pub def findDecl(src: LocString, graph: ScopeGraph): Option[Node.Decl] =
+        pub def findDecl(src: Node.Ref, graph: ScopeGraph): Option[Node.Decl] =
             graph
                 |> scopeOf(src)
                 |> Option.map(scope -> findPaths(scope, src, graph))
                 |> Option.getWithDefault(List.empty())
-                !> List.forEach(path -> {
-                    let _ = dbg("Here's a path:\n");
-                    let _ = foreach(edge <- path) match edge {
-                        case Edge.Lex(scope) => {
-                            let _ = dbg("${scope},");
-                            ()
-                        }
-                        case Edge.Use(scope) => {
-                            let _ = dbg("${scope},");
-                            ()
-                        }
-                        case Edge.Decl(decl) => {
-                            let handle = Node.Decl.handle(decl);
-                            let _ = dbg("${handle}");
-                            ()
-                        }
-                    };
-                    ()
-                })
                 // |> List.sortWith(???) // TODO: ordering of paths
                 |> List.filterMap(path -> match List.last(path) {
                     case Some(Edge.Decl(decl)) => Some(decl)
@@ -158,7 +163,7 @@ mod SG.Ast {
                 })
                 |> List.head // this maybe should be a fold that stops when we've found exactly one and fails if we find too many
 
-        def findPaths(src: Node.Scope, tgt: LocString, graph: ScopeGraph): List[Path] =
+        def findPaths(src: Node.Scope, tgt: Node.Ref, graph: ScopeGraph): List[Path] =
             graph
                 |> outgoingEdges(src)
                 |> List.flatMap(edge -> {
