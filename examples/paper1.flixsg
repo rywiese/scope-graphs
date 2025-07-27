@@ -11,6 +11,6 @@ pub mod B {
 pub mod C {
     use B
     def j(): Int32 = {
-        i
+        i()
     }
 }

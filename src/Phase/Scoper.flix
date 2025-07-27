@@ -115,11 +115,21 @@ mod SG.Phase.Scoper {
             defs,
             loc = _
         } = coerce(scope);
-        foreach(uze <- uses) visitUse(uze);
-        foreach(module <- modules) visitModule(module);
-        foreach(aliass <- aliases) visitAlias(aliass);
-        foreach(eenum <- enums) visitEnum(eenum);
-        foreach(deff <- defs) visitDef(deff)
+        foreach(uze <- uses) {
+            visitUse(uze)
+        };
+        foreach(module <- modules) {
+            visitModule(module)
+        };
+        foreach(aliass <- aliases) {
+            visitAlias(aliass)
+        };
+        foreach(eenum <- enums) {
+            visitEnum(eenum)
+        };
+        foreach(deff <- defs) {
+            visitDef(deff)
+        }
 
     def visitUse(uze: ParsedAst.Use): Unit \ MarkUse =
         let {
@@ -153,7 +163,9 @@ mod SG.Phase.Scoper {
         } = coerce(aliass);
         markDecl(Node.Decl.TypeAlias(aliass));
         inNewScope(Node.Scope.typeAlias(coerce(name)#s), () -> {
-            foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
+            foreach(arg <- args) {
+                markDecl(Node.Decl.Tpe(arg))
+            };
             visitRefTpe(tpe)
         })
 
@@ -166,20 +178,19 @@ mod SG.Phase.Scoper {
             loc = _
         } = coerce(eenum);
         markDecl(Node.Decl.Enum(eenum));
+        foreach(enumCase <- cases) {
+            markDecl(Node.Decl.EnumCase(enumCase))
+        };
         inNewScope(Node.Scope.eenum(coerce(name)#s), () -> {
-            foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
-            foreach(enumCase <- cases) visitEnumCase(enumCase)
+            foreach(arg <- args) {
+                markDecl(Node.Decl.Tpe(arg))
+            };
+            foreach(enumCase <- cases) {
+                foreach(term <- coerce(enumCase)#terms) {
+                    visitRefTpe(term)
+                }
+            }
         })
-
-    def visitEnumCase(enumCase: ParsedAst.EnumCase): Unit \ MarkRef + MarkDecl =
-        let {
-            ac = _,
-            name = _,
-            terms,
-            loc = _
-        } = coerce(enumCase);
-        markDecl(Node.Decl.EnumCase(enumCase));
-        foreach(term <- terms) visitRefTpe(term)
 
     def visitDef(deff: ParsedAst.Def): Unit \ EnterScope + ExitScope + MarkRef + MarkDecl =
         let {
@@ -194,7 +205,9 @@ mod SG.Phase.Scoper {
         let argTpes = args |> List.map(arg -> match arg { case (_, t) => t });
         // scope for type vars? scope for var names? are they the same?
         inNewScope(Node.Scope.deff(coerce(name)#s), () -> {
-            foreach(argTpe <- argTpes) visitDeclTpe(argTpe);
+            foreach(argTpe <- argTpes) {
+                visitDeclTpe(argTpe)
+            };
             visitDeclTpe(tpe);
             visitExp(exp)
         })
@@ -212,7 +225,9 @@ mod SG.Phase.Scoper {
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
                 visitDeclTpe(applier);
-                foreach(t <- applied) visitDeclTpe(t)
+                foreach(t <- applied) {
+                    visitDeclTpe(t)
+                }
             }
         }
 
@@ -223,7 +238,9 @@ mod SG.Phase.Scoper {
             }
             case ParsedAst.Tpe.App(applier, applied, _) => {
                 visitRefTpe(applier);
-                foreach(t <- applied) visitRefTpe(t)
+                foreach(t <- applied) {
+                    visitRefTpe(t)
+                }
             }
         }
 
@@ -242,7 +259,9 @@ mod SG.Phase.Scoper {
             }
             case ParsedAst.Exp.App(e1, es, _) => {
                 visitExp(e1);
-                foreach(e2 <- es) visitExp(e2)
+                foreach(e2 <- es) {
+                    visitExp(e2)
+                }
             }
             case ParsedAst.Exp.Name(name, _) => {
                 markRef(coerce(name)#name)
