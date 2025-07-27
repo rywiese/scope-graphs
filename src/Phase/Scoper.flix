@@ -152,7 +152,7 @@ mod SG.Phase.Scoper {
             loc = _
         } = coerce(aliass);
         markDecl(Node.Decl.TypeAlias(aliass));
-        inNewScope(Node.Scope.Alias(coerce(name)#s), () -> {
+        inNewScope(Node.Scope.typeAlias(coerce(name)#s), () -> {
             foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
             visitRefTpe(tpe)
         })
@@ -166,7 +166,7 @@ mod SG.Phase.Scoper {
             loc = _
         } = coerce(eenum);
         markDecl(Node.Decl.Enum(eenum));
-        inNewScope(Node.Scope.Enum(coerce(name)#s), () -> {
+        inNewScope(Node.Scope.eenum(coerce(name)#s), () -> {
             foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
             foreach(enumCase <- cases) visitEnumCase(enumCase)
         })
@@ -193,7 +193,7 @@ mod SG.Phase.Scoper {
         markDecl(Node.Decl.Def(deff));
         let argTpes = args |> List.map(arg -> match arg { case (_, t) => t });
         // scope for type vars? scope for var names? are they the same?
-        inNewScope(Node.Scope.Def(coerce(name)#s), () -> {
+        inNewScope(Node.Scope.deff(coerce(name)#s), () -> {
             foreach(argTpe <- argTpes) visitDeclTpe(argTpe);
             visitDeclTpe(tpe);
             visitExp(exp)
@@ -231,7 +231,7 @@ mod SG.Phase.Scoper {
         match exp {
             case ParsedAst.Exp.Let(id, binding, rest, _) => {
                 visitExp(binding);
-                inNewScope(Node.Scope.Let(coerce(id)#s), () -> {
+                inNewScope(Node.Scope.lett(coerce(id)#s), () -> {
                     markDecl(Node.Decl.Id(id));
                     visitExp(rest)
                 })

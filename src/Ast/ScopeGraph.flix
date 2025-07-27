@@ -20,11 +20,11 @@ mod SG.Ast {
 
             pub enum Scope with Eq, Order, ToString {
                 case Top
-                case Module(String, Scope)
-                case Alias(String, Scope)
-                case Let(String, Scope)
-                case Def(String, Scope)
-                case Enum(String, Scope)
+                case Module(List[String])
+                case TypeAlias(List[String])
+                case Enum(List[String])
+                case Def(List[String])
+                case Let(List[String])
             }
 
             pub enum Decl {
@@ -41,26 +41,40 @@ mod SG.Ast {
                 use SG.Ast.ParsedAst
                 use SG.Ast.ScopeGraph.Node.Scope
 
-                pub def parent(scope: Scope): Scope =
-                    match scope {
-                        case Top => Top
-                        case Module(_, parent) => parent
-                        case Alias(_, parent) => parent
-                        case Let(_, parent) => parent
-                        case Def(_, parent) => parent
-                        case Enum(_, parent) => parent
-                    }
-
                 pub def fromFullyQualified(moduleName: ParsedAst.Name): Scope =
                     Scope.Top |> module(moduleName)
 
+                pub def scopePath(scope: Scope): List[String] = match scope {
+                    case Top => List.empty()
+                    case Module(l) => l
+                    case TypeAlias(l) => l
+                    case Enum(l) => l
+                    case Def(l) => l
+                    case Let(l) => l
+                }
+
                 pub def module(moduleName: ParsedAst.Name, parent: Scope): Scope =
                     let { qualifiers, name, loc = _ } = coerce(moduleName);
-                    let withQualifiers = qualifiers
-                        |> List.map(qualifier -> coerce(qualifier)#s)
-                        |> List.foldLeft(s -> n -> Scope.Module(n, s), parent);
-                    let modName = coerce(name)#s;
-                    Scope.Module(modName, withQualifiers)
+                    let old = parent |> Scope.scopePath;
+                    let qs = qualifiers |> List.map(qualifier -> coerce(qualifier)#s); 
+                    let n = coerce(name)#s :: Nil;
+                    Scope.Module(old ++ qs ++ n)
+
+                pub def typeAlias(aliasName: String, parent: Scope): Scope =
+                    let old = parent |> Scope.scopePath;
+                    Scope.TypeAlias(old ++ (aliasName :: Nil))
+
+                pub def eenum(enumName: String, parent: Scope): Scope =
+                    let old = parent |> Scope.scopePath;
+                    Scope.Enum(old ++ (enumName :: Nil))
+
+                pub def deff(defName: String, parent: Scope): Scope =
+                    let old = parent |> Scope.scopePath;
+                    Scope.Def(old ++ (defName :: Nil))
+
+                pub def lett(letName: String, parent: Scope): Scope =
+                    let old = parent |> Scope.scopePath;
+                    Scope.Let(old ++ (letName :: Nil))
 
             }
 
