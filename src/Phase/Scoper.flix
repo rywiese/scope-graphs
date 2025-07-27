@@ -45,9 +45,14 @@ mod SG.Phase.Scoper {
 
     def buildScopeGraph(ast: ParsedAst): ScopeGraph =
         region rc {
-            let scope = Ref.fresh(rc, Node.Scope.Top);
+            let scopes = MutList.empty(rc);
             let refs = MutMap.empty(rc);
             let edges = MutMap.empty(rc);
+            def currentScope = {
+                scopes
+                    |> MutList.last
+                    |> Option.getWithDefault(Node.Scope.Top)
+            };
             def addEdge(node, edge) = {
                 match MutMap.get(node, edges) {
                     case None => {
@@ -63,31 +68,30 @@ mod SG.Phase.Scoper {
                 visitAst(ast)
             } with handler EnterScope {
                 def enterScope(enter, resume) = {
-                    let parent = Ref.get(scope);
+                    let parent = currentScope();
                     let child = enter(parent);
-                    Ref.put(child, scope);
+                    scopes |> MutList.push(child);
                     addEdge(child, Edge.Lex(parent));
-                    Ref.put(parent, scope);
                     resume(())
                 }
             } with handler ExitScope {
                 def exitScope(resume) = {
-                    Ref.transform(Node.Scope.parent, scope);
+                    scopes |> MutList.pop;
                     resume(())
                 }
             } with handler MarkRef {
                 def markRef(ref, resume) = {
-                    refs |> MutMap.put(ref, Ref.get(scope));
+                    refs |> MutMap.put(ref, currentScope());
                     resume(())
                 }
             } with handler MarkUse {
                 def markUse(used, resume) = {
-                    addEdge(Ref.get(scope), Edge.Use(used));
+                    addEdge(currentScope(), Edge.Use(used));
                     resume(())
                 }
             } with handler MarkDecl {
                 def markDecl(decl, resume) = {
-                    addEdge(Ref.get(scope), Edge.Decl(decl));
+                    addEdge(currentScope(), Edge.Decl(decl));
                     resume(())
                 }
             };
@@ -153,18 +157,19 @@ mod SG.Phase.Scoper {
             visitRefTpe(tpe)
         })
 
-    def visitEnum(eenum: ParsedAst.Enum): Unit \ MarkRef + MarkDecl =
+    def visitEnum(eenum: ParsedAst.Enum): Unit \ EnterScope + ExitScope + MarkRef + MarkDecl =
         let {
             ac = _,
-            name = _,
+            name,
             args,
             cases,
             loc = _
         } = coerce(eenum);
         markDecl(Node.Decl.Enum(eenum));
-        // we probably need a new scope in which to declare type vars?
-        foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
-        foreach(enumCase <- cases) visitEnumCase(enumCase)
+        inNewScope(Node.Scope.Enum(coerce(name)#s), () -> {
+            foreach(arg <- args) markDecl(Node.Decl.Tpe(arg));
+            foreach(enumCase <- cases) visitEnumCase(enumCase)
+        })
 
     def visitEnumCase(enumCase: ParsedAst.EnumCase): Unit \ MarkRef + MarkDecl =
         let {

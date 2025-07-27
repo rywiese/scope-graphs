@@ -18,12 +18,13 @@ mod SG.Ast {
             use SG.Ast.Shared.Location.LocRange
             use SG.Ast.Shared.Location.LocString
 
-            pub enum Scope with Eq, Order {
+            pub enum Scope with Eq, Order, ToString {
                 case Top
                 case Module(String, Scope)
                 case Alias(String, Scope)
                 case Let(String, Scope)
                 case Def(String, Scope)
+                case Enum(String, Scope)
             }
 
             pub enum Decl {
@@ -47,6 +48,7 @@ mod SG.Ast {
                         case Alias(_, parent) => parent
                         case Let(_, parent) => parent
                         case Def(_, parent) => parent
+                        case Enum(_, parent) => parent
                     }
 
                 pub def fromFullyQualified(moduleName: ParsedAst.Name): Scope =
@@ -113,6 +115,25 @@ mod SG.Ast {
                 |> scopeOf(src)
                 |> Option.map(scope -> findPaths(scope, src, graph))
                 |> Option.getWithDefault(List.empty())
+                // !> List.forEach(path -> {
+                //     let _ = dbg("Here's a path:\n");
+                //     let _ = foreach(edge <- path) match edge {
+                //         case Edge.Lex(scope) => {
+                //             let _ = dbg("${scope},");
+                //             ()
+                //         }
+                //         case Edge.Use(scope) => {
+                //             let _ = dbg("${scope},");
+                //             ()
+                //         }
+                //         case Edge.Decl(decl) => {
+                //             let handle = Node.Decl.handle(decl);
+                //             let _ = dbg("${handle}");
+                //             ()
+                //         }
+                //     };
+                //     ()
+                // })
                 // |> List.sortWith(???) // TODO: ordering of paths
                 |> List.filterMap(path -> match List.last(path) {
                     case Some(Edge.Decl(decl)) => Some(decl)
