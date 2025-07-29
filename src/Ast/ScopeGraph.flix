@@ -4,10 +4,22 @@ mod SG.Ast.ScopeGraph {
 
     type alias Path = List[Edge]
 
-    pub enum EdgeType with Eq, Order {
+    pub enum EdgeType with Eq {
         case Decl
         case Use
         case Lex
+    }
+
+    instance Order[EdgeType] {
+        pub def compare(x: EdgeType, y: EdgeType): Comparison =
+            def rank(e: EdgeType) = {
+                match e {
+                    case EdgeType.Decl => 1
+                    case EdgeType.Lex => 2
+                    case EdgeType.Use => 3
+                }
+            };
+            Order.compare(rank(x), rank(y))
     }
 
     pub def edges(graph: ScopeGraph): Map[Namespace, List[Edge]] =
