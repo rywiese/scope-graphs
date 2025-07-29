@@ -20,11 +20,6 @@ mod SG.Ast.ScopeGraph {
     use SG.Ast.Shared.Location.LocString
     use SG.Ast.Shared.Location.Source
 
-    // TODO: add a `Handle` wrapper around `LocString` that:
-    // 1. is the location within a decl that we land on when command clicking into a `Refr`
-    // 2. can be command clicked on to get a drop down of `Refr`s
-    // NOTE: every `LocString` that appears besides in `Refr`s could maybe be replaced with a handle?
-
     pub enum Scope({
         uses = List[Use],
         modules = List[Module],

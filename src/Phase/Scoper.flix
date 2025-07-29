@@ -1,6 +1,4 @@
 mod SG.Phase.Scoper {
-    use EnterScope.enterScope // note evidence of non fully qualified use?
-    use ExitScope.exitScope
     use MarkDecl.markDecl
     use MarkUse.markUse
     use SG.Ast.ParsedAst
@@ -30,18 +28,6 @@ mod SG.Phase.Scoper {
     use SG.Ast.ScopeGraph.TypeAlias
     use SG.Ast.ScopeGraph.Use
 
-    eff Ry {
-        def currentNamespace(): Namespace
-    }
-
-    eff EnterScope {
-        def enterScope(enter: Namespace -> Namespace): Unit
-    }
-
-    eff ExitScope {
-        def exitScope(): Unit
-    }
-
     eff MarkUse {
         def markUse(used: Refr): Unit
     }
@@ -50,11 +36,11 @@ mod SG.Phase.Scoper {
         def markDecl(decl: Decl): Unit
     }
 
-    def inNewScope(enter: Namespace -> Namespace, f: Unit -> t \ ef): t \ ef + EnterScope + ExitScope =
-        enterScope(enter);
-        let t = f();
-        exitScope();
-        t
+    eff CurrentScope {
+        def get(): Namespace
+        def enter(enter: Namespace -> Namespace): Unit
+        def exit(): Namespace
+    }
 
     pub def resolve(ast: ParsedAst): Validation[Error, ScopeGraph] = {
         Validation.Success(buildScopeGraph(ast))
@@ -63,7 +49,6 @@ mod SG.Phase.Scoper {
     def buildScopeGraph(ast: ParsedAst): ScopeGraph =
         region rc {
             let namespaces = MutList.empty(rc);
-            // let refs = MutMap.empty(rc);
             let edges = MutMap.empty(rc);
             def currentScope = {
                 namespaces
@@ -88,26 +73,6 @@ mod SG.Phase.Scoper {
                         |> MutMap.map(rc, MutList.toList)
                         |> MutMap.toMap
                 })
-            } with handler Ry {
-                def currentNamespace(resume) = {
-                    let namespace = namespaces
-                        |> MutList.last
-                        |> Option.getWithDefault(Namespace.Top);
-                    resume(namespace)
-                }
-            } with handler EnterScope {
-                def enterScope(enter, resume) = {
-                    let parent = currentScope();
-                    let child = enter(parent);
-                    namespaces |> MutList.push(child);
-                    addEdge(child, Edge.Lex(parent));
-                    resume(())
-                }
-            } with handler ExitScope {
-                def exitScope(resume) = {
-                    namespaces |> MutList.pop;
-                    resume(())
-                }
             } with handler MarkUse {
                 def markUse(used, resume) = {
                     addEdge(currentScope(), Edge.Use(used));
@@ -118,13 +83,33 @@ mod SG.Phase.Scoper {
                     addEdge(currentScope(), Edge.Decl(decl));
                     resume(())
                 }
+            } with handler CurrentScope {
+                def get(resume) = {
+                    let namespace = namespaces
+                        |> MutList.last
+                        |> Option.getWithDefault(Namespace.Top);
+                    resume(namespace)
+                }
+                def enter(enter, resume) = {
+                    let parent = currentScope();
+                    let child = enter(parent);
+                    namespaces |> MutList.push(child);
+                    addEdge(child, Edge.Lex(parent));
+                    resume(())
+                }
+                def exit(resume) = {
+                    let old = namespaces
+                        |> MutList.pop
+                        |> Option.getWithDefault(Namespace.Top);
+                    resume(old)
+                }
             }
         }
 
-    def visitAst(ast: ParsedAst): Map[Source, ScopeGraph.Scope] \ Ry + EnterScope + ExitScope + MarkUse + MarkDecl =
+    def visitAst(ast: ParsedAst): Map[Source, ScopeGraph.Scope] \ CurrentScope + MarkUse + MarkDecl =
         ast#m |> Functor.map(visitScope) // why does this break the ide?
 
-    def visitScope(scope: ParsedAst.Scope): ScopeGraph.Scope \ Ry + EnterScope + ExitScope + MarkUse + MarkDecl =
+    def visitScope(scope: ParsedAst.Scope): ScopeGraph.Scope \ CurrentScope + MarkUse + MarkDecl =
         let {
             uses,
             modules,
@@ -133,7 +118,7 @@ mod SG.Phase.Scoper {
             defs,
             loc
         } = coerce(scope);
-        ScopeGraph.Scope.Scope({
+        Scope.Scope({
             uses = uses |> List.map(visitUse),
             modules = modules |> List.map(visitModule),
             aliases = aliases |> List.map(visitAlias),
@@ -142,7 +127,7 @@ mod SG.Phase.Scoper {
             loc = loc
         })
 
-    def visitUse(uze: ParsedAst.Use): ScopeGraph.Use \ Ry + MarkUse =
+    def visitUse(uze: ParsedAst.Use): ScopeGraph.Use \ CurrentScope + MarkUse =
         let {
             ac,
             name,
@@ -151,35 +136,32 @@ mod SG.Phase.Scoper {
         } = coerce(uze);
         let usage = visitName(Kind.Any, name);
         markUse(usage);
-        ScopeGraph.Use.Use({
+        Use.Use({
             ac = ac,
             usage = usage,
             renaming = renaming,
             loc = loc
         })
 
-    def visitModule(module: ParsedAst.Module): ScopeGraph.Module \ Ry + EnterScope + ExitScope + MarkUse + MarkDecl =
+    def visitModule(module: ParsedAst.Module): ScopeGraph.Module \ CurrentScope + MarkUse + MarkDecl =
         let {
             ac,
             name,
             scope,
             loc
         } = coerce(module);
-        let namespace = Ry.currentNamespace();
         let moduleName = coerce(name)#name;
-        let newModule = ScopeGraph.Module.Module({
+        declare(Kind.Module, Decl.Module, moduleName, handle -> Module.Module({
             ac = ac,
             qualifier = visitQualifiers(coerce(name)#qualifiers),
-            handle = Handle.Handle(Kind.Module, moduleName, namespace),
-            scope = inNewScope(Namespace.Module(coerce(moduleName)#s), () -> {
+            handle = handle,
+            scope = inSubScope(Namespace.Module(coerce(moduleName)#s), () -> {
                 visitScope(scope)
             }),
             loc = loc
-        });
-        markDecl(Decl.Module(newModule));
-        newModule
+        }))
 
-    def visitAlias(aliass: ParsedAst.TypeAlias): ScopeGraph.TypeAlias \ Ry + EnterScope + ExitScope + MarkDecl =
+    def visitAlias(aliass: ParsedAst.TypeAlias): ScopeGraph.TypeAlias \ CurrentScope + MarkDecl =
         let {
             ac,
             name,
@@ -187,14 +169,13 @@ mod SG.Phase.Scoper {
             tpe,
             loc
         } = coerce(aliass);
-        let namespace = Ry.currentNamespace();
-        let newAlias = ScopeGraph.TypeAlias.TypeAlias({
+        declare(Kind.Tpe, Decl.TypeAlias, name, handle -> TypeAlias.TypeAlias({
             ac = ac,
-            handle = Handle.Handle(Kind.Tpe, name, namespace),
+            handle = handle,
             args = args,
-            tpe = inNewScope(Namespace.TypeAlias(coerce(name)#s), () -> {
+            tpe = inSubScope(Namespace.TypeAlias(coerce(name)#s), () -> {
                 foreach(arg <- args) {
-                    markDecl(Decl.TpeVar(Handle.Handle(Kind.Var, arg, namespace)))
+                    discard(declare(Kind.Var, Decl.TpeVar, arg, argHandle -> argHandle))
                 };
                 let boundVars = args
                     |> List.map(arg -> coerce(arg)#s)
@@ -203,11 +184,9 @@ mod SG.Phase.Scoper {
                 sgTpe
             }),
             loc = loc
-        });
-        markDecl(Decl.TypeAlias(newAlias));
-        newAlias
+        }))
 
-    def visitEnum(eenum: ParsedAst.Enum): ScopeGraph.Enum \ Ry + EnterScope + ExitScope + MarkDecl =
+    def visitEnum(eenum: ParsedAst.Enum): ScopeGraph.Enum \ CurrentScope + MarkDecl =
         let {
             ac,
             name,
@@ -215,41 +194,24 @@ mod SG.Phase.Scoper {
             cases,
             loc
         } = coerce(eenum);
-        // markDecl(Node.Decl.Enum(eenum));
-        // foreach(enumCase <- cases) {
-        //     markDecl(Node.Decl.EnumCase(enumCase))
-        // };
-        // inNewScope(Node.Scope.eenum(coerce(name)#s), () -> {
-        //     foreach(arg <- args) {
-        //         markDecl(Node.Decl.TpeVar(arg))
-        //     };
-        //     foreach(enumCase <- cases) {
-        //         foreach(term <- coerce(enumCase)#terms) {
-        //             visitRefTpe(term)
-        //         }
-        //     }
-        // })
-        let newCases = inNewScope(Namespace.Enum(coerce(name)#s), () -> {
-            foreach(arg <- args) {
-                markDecl(Decl.TpeVar(Handle.Handle(Kind.Var, arg, Ry.currentNamespace())))
-            };
-            let newCases = cases |> List.map(visitEnumCase);
-            newCases
-        });
-        let newEnum = ScopeGraph.Enum.Enum({
+        let enumName = coerce(name)#s;
+        declare(Kind.Tpe, Decl.Enum, name, handle -> Enum.Enum({
             ac = ac,
-            handle = Handle.Handle(Kind.Tpe, name, Ry.currentNamespace()),
-            args = args,
-            cases = newCases,
+            handle = handle,
+            args = inSubScope(Namespace.Enum(enumName), () -> {
+                // TODO: Should we put Handle in the AST instead of locstring directly???
+                let _ = args |> List.forEach(arg -> {
+                    discard(declare(Kind.Var, Decl.TpeVar, arg, argHandle -> argHandle))
+                });
+                args
+            }),
+            cases = inSubScope(Namespace.Enum(enumName), () -> {
+                cases |> List.map(visitEnumCase)
+            }),
             loc = loc
-        });
-        markDecl(Decl.Enum(newEnum));
-        foreach(enumCase <- newCases) {
-            markDecl(Decl.EnumCase(enumCase))
-        };
-        newEnum
+        }))
 
-    def visitEnumCase(enumCase: ParsedAst.EnumCase): ScopeGraph.EnumCase \ Ry + MarkDecl =
+    def visitEnumCase(enumCase: ParsedAst.EnumCase): ScopeGraph.EnumCase \ CurrentScope + MarkDecl =
         let {
             ac,
             name,
@@ -257,14 +219,16 @@ mod SG.Phase.Scoper {
             loc
         } = coerce(enumCase);
         let (_, newTerms) = visitTpes(Set.empty(), terms);
-        ScopeGraph.EnumCase.EnumCase({
-            ac = ac,
-            handle = Handle.Handle(Kind.Var, name, Ry.currentNamespace()),
-            terms = newTerms,
-            loc = loc
+        inParentScope(() -> {
+            declare(Kind.Var, Decl.EnumCase, name, handle -> EnumCase.EnumCase({
+                ac = ac,
+                handle = handle,
+                terms = newTerms,
+                loc = loc
+            }))
         })
 
-    def visitDef(deff: ParsedAst.Def): ScopeGraph.Def \ Ry + EnterScope + ExitScope + MarkDecl =
+    def visitDef(deff: ParsedAst.Def): ScopeGraph.Def \ CurrentScope + MarkDecl =
         let {
             ac,
             name,
@@ -273,10 +237,11 @@ mod SG.Phase.Scoper {
             exp,
             loc
         } = coerce(deff);
-        let (newArgs, newTpe, newExp) = inNewScope(Namespace.Def(coerce(name)#s), () -> {
+        let (newArgs, newTpe, newExp) = inSubScope(Namespace.Def(coerce(name)#s), () -> {
             let (argVars, argTpes) = args |> List.unzip;
             foreach(var <- argVars) {
-                markDecl(Decl.Var(Handle.Handle(Kind.Var, var, Ry.currentNamespace())))
+                // TODO: skeptical of markDecls that don't get wrapped in AST
+                markDecl(Decl.Var(Handle.Handle(Kind.Var, var, CurrentScope.get())))
             };
             let (boundVars, newArgTpes) = visitTpes(Set.empty(), argTpes);
             let newArgs = List.zip(argVars, newArgTpes);
@@ -284,18 +249,16 @@ mod SG.Phase.Scoper {
             let newExp = visitExp(exp);
             (newArgs, newTpe, newExp)
         });
-        let newDef = ScopeGraph.Def.Def({
+        declare(Kind.Var, Decl.Def, name, handle -> Def.Def({
             ac = ac,
-            handle = Handle.Handle(Kind.Var, name, Ry.currentNamespace()),
+            handle = handle,
             args = newArgs,
             tpe = newTpe,
             exp = newExp,
             loc = loc
-        });
-        markDecl(Decl.Def(newDef));
-        newDef
+        }))
 
-    def visitTpe(boundVars: Set[String], tpe: ParsedAst.Tpe): (Set[String], ScopeGraph.Tpe) \ Ry + MarkDecl =
+    def visitTpe(boundVars: Set[String], tpe: ParsedAst.Tpe): (Set[String], ScopeGraph.Tpe) \ CurrentScope + MarkDecl =
         match tpe {
             case ParsedAst.Tpe.Base(name, _) => {
                 let locId = coerce(name)#name;
@@ -305,7 +268,8 @@ mod SG.Phase.Scoper {
                     if (id `memberOf` boundVars) {
                         (boundVars, ScopeGraph.Tpe.BoundVar(visitName(Kind.Tpe, name)))
                     } else {
-                        let handle = Handle.Handle(Kind.Var, locId, Ry.currentNamespace());
+                        let handle = Handle.Handle(Kind.Var, locId, CurrentScope.get());
+                        // TODO: skeptical of markDecls that don't get wrapped in AST
                         markDecl(Decl.TpeVar(handle));
                         (boundVars |> Set.insert(id), ScopeGraph.Tpe.FreeVar(handle))
                     }
@@ -320,19 +284,20 @@ mod SG.Phase.Scoper {
             }
         }
 
-    def visitTpes(boundVars: Set[String], tpes: List[ParsedAst.Tpe]): (Set[String], List[ScopeGraph.Tpe]) \ Ry + MarkDecl =
+    def visitTpes(boundVars: Set[String], tpes: List[ParsedAst.Tpe]): (Set[String], List[ScopeGraph.Tpe]) \ CurrentScope + MarkDecl =
         tpes |> List.foldLeft(pair -> t -> {
             let (bvs, ts) = pair;
             let (bvs2, t2) = visitTpe(bvs, t);
             (bvs2, t2 :: ts)
         }, (boundVars, Nil))
 
-    def visitExp(exp: ParsedAst.Exp): ScopeGraph.Exp \ Ry + EnterScope + ExitScope + MarkDecl =
+    def visitExp(exp: ParsedAst.Exp): ScopeGraph.Exp \ CurrentScope + MarkDecl =
         match exp {
             case ParsedAst.Exp.Let(id, binding, rest, loc) => {
                 let newBinding = visitExp(binding);
-                let newRest = inNewScope(Namespace.Let(coerce(id)#s), () -> {
-                    markDecl(Decl.Var(Handle.Handle(Kind.Var, id, Ry.currentNamespace())));
+                let newRest = inSubScope(Namespace.Let(coerce(id)#s), () -> {
+                    // TODO: skeptical of markDecls that don't get wrapped in AST
+                    markDecl(Decl.Var(Handle.Handle(Kind.Var, id, CurrentScope.get())));
                     visitExp(rest)
                 });
                 ScopeGraph.Exp.Let(id, newBinding, newRest, loc)
@@ -352,14 +317,32 @@ mod SG.Phase.Scoper {
             case ParsedAst.Exp.Bool(b, loc) => ScopeGraph.Exp.Bool(b, loc)
         }
 
-    def visitName(kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ Ry =
+    def visitName(kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ CurrentScope =
         let { qualifiers, name = id, loc = _ } = coerce(name);
-        let namespace = Ry.currentNamespace();
+        let namespace = CurrentScope.get();
         let newQualifiers = visitQualifiers(qualifiers);
         Refr.Refr(kind, newQualifiers, id, namespace)
 
-    def visitQualifiers(qualifiers: List[LocString]): Option[Refr] \ Ry =
-        let namespace = Ry.currentNamespace();
+    def visitQualifiers(qualifiers: List[LocString]): Option[Refr] \ CurrentScope =
+        let namespace = CurrentScope.get();
         qualifiers |> List.foldLeft(q -> m -> Some(Refr.Refr(Kind.Module, q, m, namespace)), None)
+
+    def declare(kind: Kind, cons: t -> Decl, loc: LocString, mkDecl: Handle -> t \ ef): t \ ef + CurrentScope + MarkDecl =
+        CurrentScope.get()
+            |> Handle.Handle(kind, loc)
+            |> mkDecl
+            !> (cons >> markDecl)
+
+    def inSubScope(enter: Namespace -> Namespace, f: Unit -> t \ ef): t \ ef + CurrentScope =
+        CurrentScope.enter(enter);
+        let t = f();
+        CurrentScope.exit();
+        t
+
+    def inParentScope(f: Unit -> t \ ef): t \ ef + CurrentScope =
+        let child = CurrentScope.exit();
+        let t = f();
+        CurrentScope.enter(_ -> child);
+        t
 
 }
