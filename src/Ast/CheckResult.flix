@@ -38,10 +38,10 @@ mod SG.Ast.CheckResult {
         let { scopeGraph = scopeGraph } = coerce(cr);
         Finder.find(loc, _ -> (), scopeGraph)
             |> Option.flatMap(node -> match node {
-                case AstNode.Refr(refr) => ScopeGraph.findDecl(refr, scopeGraph)
+                case AstNode.Refr(refr) => ScopeGraph.findHandle(refr, scopeGraph)
                 // case for findRefrs(handle) ?
                 case _ => None
             })
-            |> Option.map(Decl.handle >> Located.getLoc)
+            |> Option.map(Located.getLoc)
 
 }

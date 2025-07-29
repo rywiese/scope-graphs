@@ -169,8 +169,7 @@ mod SG.Phase.Scoper {
         let moduleName = coerce(name)#name;
         let newModule = ScopeGraph.Module.Module({
             ac = ac,
-            qualifier = coerce(name)#qualifiers
-                |> List.foldLeft(q -> m -> Some(Refr.Refr(Kind.Module, q, m, namespace)), None),
+            qualifier = visitQualifiers(coerce(name)#qualifiers),
             handle = Handle.Handle(Kind.Module, moduleName, namespace),
             scope = inNewScope(Namespace.Module(coerce(moduleName)#s), () -> {
                 visitScope(scope)
@@ -356,9 +355,11 @@ mod SG.Phase.Scoper {
     def visitName(kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ Ry =
         let { qualifiers, name = id, loc = _ } = coerce(name);
         let namespace = Ry.currentNamespace();
-        qualifiers |> List.foldLeft(
-            q -> m -> Refr.Refr(kind, Some(q), m, namespace),
-            Refr.Refr(kind, None, id, namespace)
-        )
+        let newQualifiers = visitQualifiers(qualifiers);
+        Refr.Refr(kind, newQualifiers, id, namespace)
+
+    def visitQualifiers(qualifiers: List[LocString]): Option[Refr] \ Ry =
+        let namespace = Ry.currentNamespace();
+        qualifiers |> List.foldLeft(q -> m -> Some(Refr.Refr(Kind.Module, q, m, namespace)), None)
 
 }

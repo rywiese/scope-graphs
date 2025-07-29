@@ -20,52 +20,36 @@ mod SG.Ast.ScopeGraph {
             |> Map.get(scope)
             |> Option.getWithDefault(List.empty())
 
-    // def matchingDecl(scope: Namespace, refr: Refr, graph: ScopeGraph): List[Decl] =
-    //     graph
-    //         |> outgoingEdges(scope)
-    //         |> List.filterMap(edge -> match edge {
-    //             case Edge.Decl(decl) => if (refr `matches` decl |> Decl.handle) {
-    //                 Some(decl)
-    //             } else {
-    //                 None
-    //             }
-    //             case _ => None
-    //         })
+    pub def findHandle(src: Refr, graph: ScopeGraph): Option[Handle] =
+        let refr = coerce(src);
+        let namespace = refr#qualifier
+            |> Option.flatMap(qualifier -> findHandle(qualifier, graph))
+            |> Option.map(parent -> {
+                let Handle.Handle(_, _, namespace) = parent;
+                namespace
+            })
+            |> Option.getWithDefault(refr#referencedIn);
+        graph
+            |> findDecl(namespace, src)
+            |> Option.map(Decl.handle)
 
-    pub def findDecl(src: Refr, graph: ScopeGraph): Option[Decl] =
-        let namespace = coerce(src)#referencedIn;
-        graph |> findDeclFromNamespace(namespace, src)
-
-    // pub def findDeclOld(src: Refr, graph: ScopeGraph): Option[Decl] =
-    //     let namespace = coerce(src)#referencedIn;
-    //     graph
-    //         // |> findPaths(namespace, src)
-    //         // |> Option.map(scope -> findPaths(scope, src, graph))
-    //         // |> Option.getWithDefault(List.empty())
-    //         // |> List.sortWith(???) // TODO: ordering of paths
-    //         |> List.filterMap(path -> match List.last(path) {
-    //             case Some(Edge.Decl(decl)) => Some(decl)
-    //             case _ => None
-    //         })
-    //         |> List.head // this maybe should be a fold that stops when we've found exactly one and fails if we find too many
-
-    def findDeclFromNamespace(src: Namespace, refr: Refr, graph: ScopeGraph): Option[Decl] =
+    def findDecl(src: Namespace, refr: Refr, graph: ScopeGraph): Option[Decl] =
         graph
             |> outgoingEdges(src)
+            |> List.sortBy(Edge.edgeType)
             |> List.findMap(edge -> match edge {
                 case Edge.Decl(decl) => if (refr `matches` decl |> Decl.handle) {
                     Some(decl)
                 } else {
                     None
                 }
-                case Edge.Lex(parent) => graph |> findDeclFromNamespace(parent, refr)
-                case _ => None
-                // case Edge.Use(used) => graph
-                //     |> findDecl(used)
-                //     |> Option.flatMap(decl -> {
-                //         let Handle.Handle(_, _, namespace) = decl |> Decl.handle;
-                //         graph |> findDeclFromNamespace(namespace, refr)
-                //     })
+                case Edge.Lex(parent) => graph |> findDecl(parent, refr)
+                case Edge.Use(used) => graph
+                    |> findHandle(used)
+                    |> Option.flatMap(handle -> {
+                        let Handle.Handle(_, _, namespace) = handle;
+                        graph |> findDecl(namespace, refr)
+                    })
             })
 
 }
