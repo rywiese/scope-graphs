@@ -101,11 +101,16 @@ mod SG.Ast.ParsedAst {
         case EnumCase(EnumCase)
         case Def(Def)
         case Exp(Exp)
-        case Name(Name) // I don't think name should be a leaf
+        case Name(Name)
         case Tpe(Tpe)
     }
 
-
+    // pub enum NodeCategory with Eq, Order, ToString {
+    //     case Any
+    //     case Module
+    //     case Tpe
+    //     case Var
+    // }
 
     //
     // Better Constructors.

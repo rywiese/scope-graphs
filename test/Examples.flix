@@ -21,9 +21,9 @@ mod SG.Test.Examples {
         let man = Manager.empty(rc);
         man |> Manager.addFileIfNotPresent(path);
         match man |> Manager.check {
-            case Validation.Success(cr) =>
-                let {parsedAst = _parsedAst, scopeGraph = scopeGraph} = coerce(cr);
-                println(scopeGraph |> ScopeGraph.refs);
+            case Validation.Success(_) =>
+                // let {parsedAst = _parsedAst, scopeGraph = scopeGraph} = coerce(cr);
+                // println(scopeGraph |> ScopeGraph.refs);
                 true
             case Validation.Failure(errs) =>
                 foreach (err <- errs) println(err);
