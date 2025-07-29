@@ -1,29 +1,30 @@
 mod SG.Ast.Util.Finder {
-    use SG.Ast.ParsedAst.mkName
     import java.lang.System
 
-    use SG.Ast.ParsedAst
-    use SG.Ast.ParsedAst.AstNode
-    use SG.Ast.ParsedAst.Def
-    use SG.Ast.ParsedAst.Enum
-    use SG.Ast.ParsedAst.EnumCase
-    use SG.Ast.ParsedAst.Exp
-    use SG.Ast.ParsedAst.Module
-    use SG.Ast.ParsedAst.Name
-    use SG.Ast.ParsedAst.Tpe
-    use SG.Ast.ParsedAst.TypeAlias
-    use SG.Ast.ParsedAst.Use
+    use SG.Ast.ScopeGraph
+    use SG.Ast.ScopeGraph.AstNode
+    use SG.Ast.ScopeGraph.Def
+    use SG.Ast.ScopeGraph.Enum
+    use SG.Ast.ScopeGraph.EnumCase
+    use SG.Ast.ScopeGraph.Exp
+    use SG.Ast.ScopeGraph.Module
+    use SG.Ast.ScopeGraph.Refr
+    use SG.Ast.ScopeGraph.Scope
+    use SG.Ast.ScopeGraph.Tpe
+    use SG.Ast.ScopeGraph.TypeAlias
+    use SG.Ast.ScopeGraph.Use
     use SG.Ast.Shared.Location.Loc
     use SG.Ast.Shared.Location.Located
     use SG.Ast.Shared.Location.Located.getLoc
 
     // worth formalizing what this does
     // finds the smallest/leafiest node that this loc is contained by?
-    pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ParsedAst): Option[AstNode] \ ef = {
-        ast#m |> Map.get(coerce(loc)#src) |> Option.flatMap(findScope(loc, visitor))
+    pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ScopeGraph): Option[AstNode] \ ef = {
+        let ScopeGraph.ScopeGraph({ nodes, edges = _ }) = ast;
+        nodes |> Map.get(coerce(loc)#src) |> Option.flatMap(findScope(loc, visitor))
     }
 
-    def findScope(loc: Loc, visitor: AstNode -> Unit \ ef, scope: ParsedAst.Scope): Option[AstNode] \ ef = {
+    def findScope(loc: Loc, visitor: AstNode -> Unit \ ef, scope: Scope): Option[AstNode] \ ef = {
         (loc, scope) ||> ifContained(() -> {
             visitor(AstNode.Scope(scope));
             let {
@@ -45,23 +46,16 @@ mod SG.Ast.Util.Finder {
         })
     }
 
-    def findName(loc: Loc, visitor: AstNode -> Unit \ ef, name: Name): Option[AstNode] \ ef = {
-        (loc, name) ||> ifContained(() -> {
-            visitor(AstNode.Name(name));
-            Some(AstNode.Name(name))
-        })
-    }
-
     def findUse(loc: Loc, visitor: AstNode -> Unit \ ef, usage: Use): Option[AstNode] \ ef = {
         (loc, usage) ||> ifContained(() -> {
             visitor(AstNode.Use(usage));
             let {
                 ac = _,
-                name,
+                usage = refr,
                 renaming = _,
                 loc = _
             } = coerce(usage);
-            name |> findName(loc, visitor) |> orElse(() ->
+            refr |> findRefr(loc, visitor) |> orElse(() ->
                 Some(AstNode.Use(usage))
             )
         })
@@ -72,11 +66,12 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.Module(module));
             let {
                 ac = _,
-                name,
+                qualifier,
+                handle = _, // TODO: return handle node?
                 scope,
                 loc = _
             } = coerce(module);
-            name |> findName(loc, visitor) |> orElse(() ->
+            qualifier |> Option.flatMap(findRefr(loc, visitor)) |> orElse(() ->
                 scope |> findScope(loc, visitor) |> orElse(() ->
                     Some(AstNode.Module(module))
                 )
@@ -89,21 +84,13 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.TypeAlias(ta));
             let {
                 ac = _,
-                name = _,
-                args,
+                handle = _,
+                args = _,
                 tpe,
                 loc = _
             } = coerce(ta);
             tpe |> findTpe(loc, visitor) |> orElse(() ->
-                args
-                    |> List.find(contains(loc))
-                    |> Option.map(arg -> {
-                        let name = mkName(List.empty(), arg);
-                        let locRange = coerce(name)#loc;
-                        Tpe.Base(name, locRange)
-                    })
-                    |> Option.flatMap(findTpe(loc, visitor))
-                    |> orElse(() -> Some(AstNode.TypeAlias(ta))
+                Some(AstNode.TypeAlias(ta)
             ))
         })
     }
@@ -113,7 +100,7 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.Enum(e));
             let {
                 ac = _,
-                name = _,
+                handle = _,
                 args = _,
                 cases,
                 loc = _
@@ -129,7 +116,7 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.EnumCase(c));
             let {
                 ac = _,
-                name = _,
+                handle = _,
                 terms,
                 loc = _
             } = coerce(c);
@@ -144,7 +131,7 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.Def(d));
             let {
                 ac = _,
-                name = _,
+                handle = _,
                 args,
                 tpe,
                 exp,
@@ -164,7 +151,15 @@ mod SG.Ast.Util.Finder {
         (loc, tpe) ||> ifContained(() -> {
             visitor(AstNode.Tpe(tpe));
             match tpe {
-                case Tpe.Base(_, _) =>
+                case Tpe.Base(refr) =>
+                    refr |> findRefr(loc, visitor) |> orElse(() ->
+                        Some(AstNode.Tpe(tpe))
+                    )
+                case Tpe.BoundVar(refr) =>
+                    refr |> findRefr(loc, visitor) |> orElse(() ->
+                        Some(AstNode.Tpe(tpe))
+                    )
+                case Tpe.FreeVar(_) =>
                     Some(AstNode.Tpe(tpe))
                 case Tpe.App(t1, t2, _) =>
                     (t1 :: t2) |> getFirst(findTpe(loc, visitor)) |> orElse(() ->
@@ -190,8 +185,8 @@ mod SG.Ast.Util.Finder {
                     (e1 :: e2) |> getFirst(findExp(loc, visitor)) |> orElse(() ->
                         Some(AstNode.Exp(exp))
                     )
-                case Exp.Name(name, _) =>
-                    name |> findName(loc, visitor) |> orElse(() ->
+                case Exp.Refr(name, _) =>
+                    name |> findRefr(loc, visitor) |> orElse(() ->
                         Some(AstNode.Exp(exp))
                     )
                 case Exp.Int(_, _) =>
@@ -199,6 +194,13 @@ mod SG.Ast.Util.Finder {
                 case Exp.Bool(_, _) =>
                     Some(AstNode.Exp(exp))
             }
+        })
+    }
+
+    def findRefr(loc: Loc, visitor: AstNode -> Unit \ ef, refr: Refr): Option[AstNode] \ ef = {
+        (loc, refr) ||> ifContained(() -> {
+            visitor(AstNode.Refr(refr));
+            Some(AstNode.Refr(refr))
         })
     }
 

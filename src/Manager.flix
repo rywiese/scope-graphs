@@ -61,7 +61,7 @@ mod SG.Manager {
             parsed <- Parser.parse(lexed) |> Validation.toResult;
             _ <- Sanitizer.sanitize(parsed) |> Validation.toResult;
             scoped <- Scoper.resolve(parsed) |> Validation.toResult
-        ) yield CheckResult.mk(parsed, scoped);
+        ) yield CheckResult.mk(scoped);
         match res {
             case Result.Ok(ok) => Validation.Success(ok)
             case Result.Err(errs) => Validation.Failure(errs)
