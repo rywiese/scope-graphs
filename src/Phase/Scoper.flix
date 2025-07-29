@@ -20,6 +20,7 @@ mod SG.Phase.Scoper {
     use SG.Ast.ScopeGraph.Enum
     use SG.Ast.ScopeGraph.EnumCase
     use SG.Ast.ScopeGraph.Exp
+    use SG.Ast.ScopeGraph.Handle
     use SG.Ast.ScopeGraph.Kind
     use SG.Ast.ScopeGraph.Module
     use SG.Ast.ScopeGraph.Namespace
@@ -148,7 +149,7 @@ mod SG.Phase.Scoper {
             renaming,
             loc
         } = coerce(uze);
-        let usage = visitName(name);
+        let usage = visitName(Kind.Any, name);
         markUse(usage);
         ScopeGraph.Use.Use({
             ac = ac,
@@ -166,12 +167,11 @@ mod SG.Phase.Scoper {
         } = coerce(module);
         let namespace = Ry.currentNamespace();
         let moduleName = coerce(name)#name;
-        let refr = Refr.Refr(Kind.Module, None, moduleName, namespace);
         let newModule = ScopeGraph.Module.Module({
             ac = ac,
             qualifier = coerce(name)#qualifiers
-                |> List.foldLeft(q -> m -> Refr.Refr(Kind.Module, Some(q), m, namespace), refr),
-            name = moduleName,
+                |> List.foldLeft(q -> m -> Some(Refr.Refr(Kind.Module, q, m, namespace)), None),
+            handle = Handle.Handle(Kind.Module, moduleName, namespace),
             scope = inNewScope(Namespace.Module(coerce(moduleName)#s), () -> {
                 visitScope(scope)
             }),
@@ -188,13 +188,14 @@ mod SG.Phase.Scoper {
             tpe,
             loc
         } = coerce(aliass);
+        let namespace = Ry.currentNamespace();
         let newAlias = ScopeGraph.TypeAlias.TypeAlias({
             ac = ac,
-            name = name,
+            handle = Handle.Handle(Kind.Tpe, name, namespace),
             args = args,
             tpe = inNewScope(Namespace.TypeAlias(coerce(name)#s), () -> {
                 foreach(arg <- args) {
-                    markDecl(Decl.TpeVar(arg))
+                    markDecl(Decl.TpeVar(Handle.Handle(Kind.Var, arg, namespace)))
                 };
                 let boundVars = args
                     |> List.map(arg -> coerce(arg)#s)
@@ -231,14 +232,14 @@ mod SG.Phase.Scoper {
         // })
         let newCases = inNewScope(Namespace.Enum(coerce(name)#s), () -> {
             foreach(arg <- args) {
-                markDecl(Decl.TpeVar(arg))
+                markDecl(Decl.TpeVar(Handle.Handle(Kind.Var, arg, Ry.currentNamespace())))
             };
             let newCases = cases |> List.map(visitEnumCase);
             newCases
         });
         let newEnum = ScopeGraph.Enum.Enum({
             ac = ac,
-            name = name,
+            handle = Handle.Handle(Kind.Tpe, name, Ry.currentNamespace()),
             args = args,
             cases = newCases,
             loc = loc
@@ -259,7 +260,7 @@ mod SG.Phase.Scoper {
         let (_, newTerms) = visitTpes(Set.empty(), terms);
         ScopeGraph.EnumCase.EnumCase({
             ac = ac,
-            name = name,
+            handle = Handle.Handle(Kind.Var, name, Ry.currentNamespace()),
             terms = newTerms,
             loc = loc
         })
@@ -275,8 +276,8 @@ mod SG.Phase.Scoper {
         } = coerce(deff);
         let (newArgs, newTpe, newExp) = inNewScope(Namespace.Def(coerce(name)#s), () -> {
             let (argVars, argTpes) = args |> List.unzip;
-            foreach(v <- argVars) {
-                markDecl(Decl.Var(v))
+            foreach(var <- argVars) {
+                markDecl(Decl.Var(Handle.Handle(Kind.Var, var, Ry.currentNamespace())))
             };
             let (boundVars, newArgTpes) = visitTpes(Set.empty(), argTpes);
             let newArgs = List.zip(argVars, newArgTpes);
@@ -286,7 +287,7 @@ mod SG.Phase.Scoper {
         });
         let newDef = ScopeGraph.Def.Def({
             ac = ac,
-            name = name,
+            handle = Handle.Handle(Kind.Var, name, Ry.currentNamespace()),
             args = newArgs,
             tpe = newTpe,
             exp = newExp,
@@ -303,13 +304,14 @@ mod SG.Phase.Scoper {
                 if (isTypeVar) {
                     let id = coerce(locId)#s;
                     if (id `memberOf` boundVars) {
-                        (boundVars, ScopeGraph.Tpe.BoundVar(visitName(name)))
+                        (boundVars, ScopeGraph.Tpe.BoundVar(visitName(Kind.Tpe, name)))
                     } else {
-                        markDecl(Decl.TpeVar(locId));
-                        (boundVars |> Set.insert(id), ScopeGraph.Tpe.FreeVar(locId))
+                        let handle = Handle.Handle(Kind.Var, locId, Ry.currentNamespace());
+                        markDecl(Decl.TpeVar(handle));
+                        (boundVars |> Set.insert(id), ScopeGraph.Tpe.FreeVar(handle))
                     }
                 } else {
-                    (boundVars, ScopeGraph.Tpe.Base(visitName(name)))
+                    (boundVars, ScopeGraph.Tpe.Base(visitName(Kind.Tpe, name)))
                 }
             }
             case ParsedAst.Tpe.App(applier, applied, loc) => {
@@ -331,7 +333,7 @@ mod SG.Phase.Scoper {
             case ParsedAst.Exp.Let(id, binding, rest, loc) => {
                 let newBinding = visitExp(binding);
                 let newRest = inNewScope(Namespace.Let(coerce(id)#s), () -> {
-                    markDecl(Decl.Var(id));
+                    markDecl(Decl.Var(Handle.Handle(Kind.Var, id, Ry.currentNamespace())));
                     visitExp(rest)
                 });
                 ScopeGraph.Exp.Let(id, newBinding, newRest, loc)
@@ -346,17 +348,17 @@ mod SG.Phase.Scoper {
                 let newEs = es |> List.map(visitExp);
                 ScopeGraph.Exp.App(newE, newEs, loc)
             }
-            case ParsedAst.Exp.Name(name, loc) => ScopeGraph.Exp.Refr(visitName(name), loc)
+            case ParsedAst.Exp.Name(name, loc) => ScopeGraph.Exp.Refr(visitName(Kind.Var, name), loc)
             case ParsedAst.Exp.Int(i, loc) => ScopeGraph.Exp.Int(i, loc)
             case ParsedAst.Exp.Bool(b, loc) => ScopeGraph.Exp.Bool(b, loc)
         }
 
-    def visitName(name: ParsedAst.Name): ScopeGraph.Refr \ Ry =
+    def visitName(kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ Ry =
         let { qualifiers, name = id, loc = _ } = coerce(name);
         let namespace = Ry.currentNamespace();
         qualifiers |> List.foldLeft(
-            q -> m -> Refr.Refr(Kind.Module, Some(q), m, namespace),
-            Refr.Refr(Kind.Module, None, id, namespace)
+            q -> m -> Refr.Refr(kind, Some(q), m, namespace),
+            Refr.Refr(kind, None, id, namespace)
         )
 
 }

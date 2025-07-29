@@ -4,7 +4,6 @@ mod SG.Test.Examples {
     use SG.Ast.Shared.Location.Located
     use SG.Ast.ParsedAst
     use SG.Ast.ScopeGraph
-    use SG.Ast.ScopeGraph.Node
     use SG.Manager
     use SG.Ast.Util.Finder
 

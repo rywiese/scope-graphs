@@ -67,11 +67,11 @@ mod SG.Ast.Util.Finder {
             let {
                 ac = _,
                 qualifier,
-                name = _, // TODO: is it worth returning something more specific here? is this a leaf?
+                handle = _, // TODO: return handle node?
                 scope,
                 loc = _
             } = coerce(module);
-            qualifier |> findRefr(loc, visitor) |> orElse(() ->
+            qualifier |> Option.flatMap(findRefr(loc, visitor)) |> orElse(() ->
                 scope |> findScope(loc, visitor) |> orElse(() ->
                     Some(AstNode.Module(module))
                 )
@@ -84,7 +84,7 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.TypeAlias(ta));
             let {
                 ac = _,
-                name = _,
+                handle = _,
                 args = _,
                 tpe,
                 loc = _
@@ -100,7 +100,7 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.Enum(e));
             let {
                 ac = _,
-                name = _,
+                handle = _,
                 args = _,
                 cases,
                 loc = _
@@ -116,7 +116,7 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.EnumCase(c));
             let {
                 ac = _,
-                name = _,
+                handle = _,
                 terms,
                 loc = _
             } = coerce(c);
@@ -131,7 +131,7 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.Def(d));
             let {
                 ac = _,
-                name = _,
+                handle = _,
                 args,
                 tpe,
                 exp,

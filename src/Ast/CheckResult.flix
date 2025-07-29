@@ -21,7 +21,6 @@ mod SG.Ast.CheckResult {
     use SG.Ast.ScopeGraph
     use SG.Ast.ScopeGraph.AstNode
     use SG.Ast.ScopeGraph.Decl
-    use SG.Ast.ScopeGraph.Node
     use SG.Ast.Shared.Location
     use SG.Ast.Shared.Location.Loc
     use SG.Ast.Shared.Location.Located
