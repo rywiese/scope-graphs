@@ -14,10 +14,10 @@ mod SG.Ast.ScopeGraph {
         let ScopeGraph({ nodes = _, edges }) = graph;
         edges
 
-    def outgoingEdges(scope: Namespace, graph: ScopeGraph): List[Edge] =
+    def outgoingEdges(node: Namespace, graph: ScopeGraph): List[Edge] =
         graph
             |> edges
-            |> Map.get(scope)
+            |> Map.get(node)
             |> Option.getWithDefault(List.empty())
 
     pub def findHandle(src: Refr, graph: ScopeGraph): Option[Handle] =
@@ -33,7 +33,7 @@ mod SG.Ast.ScopeGraph {
             |> findDecl(namespace, src)
             |> Option.map(Decl.handle)
 
-    def findDecl(src: Namespace, refr: Refr, graph: ScopeGraph): Option[Decl] =
+    def _findDecl(src: Namespace, refr: Refr, graph: ScopeGraph): Option[Decl] =
         graph
             |> outgoingEdges(src)
             |> List.sortBy(Edge.edgeType)
@@ -51,5 +51,54 @@ mod SG.Ast.ScopeGraph {
                         graph |> findDecl(namespace, refr)
                     })
             })
+
+    def findDecl(src: Namespace, refr: Refr, graph: ScopeGraph): Option[Decl] =
+        region rc {
+            let queue = MutList.empty(rc) !> MutList.push(src);
+            let explored = MutSet.empty(rc) !> MutSet.add(src);
+            def loop() = {
+                queue |> MutList.pop
+                    |> Option.map(node -> {
+                        let adj = graph
+                            |> outgoingEdges(node)
+                            |> List.sortBy(Edge.edgeType);
+                        adj
+                            |> List.findMap(edge -> match edge {
+                                case Edge.Decl(decl) => if (refr `matches` decl |> Decl.handle) {
+                                    Some(decl)
+                                } else {
+                                    None
+                                }
+                                case _ => None
+                            })
+                            |> Option.toOk(adj)
+                    })
+                    |> Option.flatMap(result -> match result {
+                        case Ok(found) => Some(found)
+                        case Err(adj) => {
+                            let successors = adj |> List.findMap(edge -> match edge {
+                                case Edge.Decl(_) => None
+                                case Edge.Lex(parent) => Some(parent)
+                                case Edge.Use(usage) => {
+                                    graph
+                                        |> findHandle(usage)
+                                        |> Option.map(handle -> {
+                                            let Handle.Handle(_, _, namespace) = handle;
+                                            namespace
+                                        })
+                                }
+                            });
+                            foreach(node <- successors) {
+                                if (not (node `MutSet.memberOf` explored)) {
+                                    queue |> MutList.push(node);
+                                    explored |> MutSet.add(node)
+                                } else () // Detect cycle???
+                            };
+                            loop()
+                        }
+                    })
+            };
+            loop()
+        }
 
 }
