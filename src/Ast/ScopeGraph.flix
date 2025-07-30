@@ -45,31 +45,13 @@ mod SG.Ast.ScopeGraph {
             |> findDecl(namespace, src)
             |> Option.map(Decl.handle)
 
-    def _findDecl(src: Namespace, refr: Refr, graph: ScopeGraph): Option[Decl] =
-        graph
-            |> outgoingEdges(src)
-            |> List.sortBy(Edge.edgeType)
-            |> List.findMap(edge -> match edge {
-                case Edge.Decl(decl) => if (refr `matches` decl |> Decl.handle) {
-                    Some(decl)
-                } else {
-                    None
-                }
-                case Edge.Lex(parent) => graph |> findDecl(parent, refr)
-                case Edge.Use(used) => graph
-                    |> findHandle(used)
-                    |> Option.flatMap(handle -> {
-                        let Handle.Handle(_, _, namespace) = handle;
-                        graph |> findDecl(namespace, refr)
-                    })
-            })
-
     def findDecl(src: Namespace, refr: Refr, graph: ScopeGraph): Option[Decl] =
         region rc {
             let queue = MutList.empty(rc) !> MutList.push(src);
             let explored = MutSet.empty(rc) !> MutSet.add(src);
             def loop() = {
-                queue |> MutList.pop
+                queue
+                    |> MutList.pop
                     |> Option.map(node -> {
                         let adj = graph
                             |> outgoingEdges(node)
@@ -92,6 +74,7 @@ mod SG.Ast.ScopeGraph {
                                 case Edge.Decl(_) => None
                                 case Edge.Lex(parent) => Some(parent)
                                 case Edge.Use(usage) => {
+                                    
                                     graph
                                         |> findHandle(usage)
                                         |> Option.map(handle -> {
