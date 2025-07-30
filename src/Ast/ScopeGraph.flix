@@ -19,7 +19,7 @@ mod SG.Ast.ScopeGraph {
                     case EdgeType.Use => 3
                 }
             };
-            Order.compare(rank(x), rank(y))
+            rank(x) <=> rank(y)
     }
 
     pub def edges(graph: ScopeGraph): Map[Namespace, List[Edge]] =
@@ -74,7 +74,6 @@ mod SG.Ast.ScopeGraph {
                                 case Edge.Decl(_) => None
                                 case Edge.Lex(parent) => Some(parent)
                                 case Edge.Use(usage) => {
-                                    
                                     graph
                                         |> findHandle(usage)
                                         |> Option.map(handle -> {
