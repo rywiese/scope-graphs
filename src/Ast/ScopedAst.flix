@@ -131,6 +131,37 @@ mod SG.Ast.ScopeGraph {
         )
     }
 
+    mod Refr {
+        use SG.Ast.ScopeGraph.Kind
+        use SG.Ast.ScopeGraph.Namespace
+
+        // May be interesting to narrow this down with a regex of sorts
+        // Part of the configuration/spec could be a regex of allowed import types
+        // Maybe each Refr has a regex??
+        pub def possibleInterpretations(refr: Refr): List[Namespace] =
+            let { kind, qualifier, name, referencedIn = _ } = coerce(refr);
+            let id = coerce(name)#s;
+            qualifier
+                |> Option.map(possibleInterpretations)
+                |> Option.getWithDefault(Namespace.Top :: Nil)
+                |> List.flatMap(parent -> match kind {
+                    // TODO: Helper functions for both directions of Kind <-> Namespace mapping?
+                    case Kind.Module => Namespace.Module(id, parent) :: Nil
+                    case Kind.Tpe => Namespace.TypeAlias(id, parent)
+                        :: Namespace.Enum(id, parent)
+                        :: Nil
+                    case Kind.Var => Namespace.Def(id, parent)
+                        :: Namespace.Let(id, parent)
+                        :: Nil
+                    case Kind.Any => Namespace.Module(id, parent)
+                        :: Namespace.TypeAlias(id, parent)
+                        :: Namespace.Enum(id, parent)
+                        :: Namespace.Def(id, parent)
+                        :: Namespace.Let(id, parent)
+                        :: Nil
+                })
+    }
+
     pub enum AstNode {
         case Scope(Scope)
         case Use(Use)
@@ -191,7 +222,7 @@ mod SG.Ast.ScopeGraph {
 
     pub enum Edge {
         case Lex(Namespace)
-        case Use(Refr)
+        case Use(Namespace)
         case Decl(Decl)
     }
 

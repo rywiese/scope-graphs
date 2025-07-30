@@ -37,6 +37,8 @@ mod SG.Ast.ScopeGraph {
         let namespace = refr#qualifier
             |> Option.flatMap(qualifier -> findHandle(qualifier, graph))
             |> Option.map(parent -> {
+                // TODO: Does this do anything?
+                // isn't the parent always in the same namespace?
                 let Handle.Handle(_, _, namespace) = parent;
                 namespace
             })
@@ -73,14 +75,7 @@ mod SG.Ast.ScopeGraph {
                             let successors = adj |> List.findMap(edge -> match edge {
                                 case Edge.Decl(_) => None
                                 case Edge.Lex(parent) => Some(parent)
-                                case Edge.Use(usage) => {
-                                    graph
-                                        |> findHandle(usage)
-                                        |> Option.map(handle -> {
-                                            let Handle.Handle(_, _, namespace) = handle;
-                                            namespace
-                                        })
-                                }
+                                case Edge.Use(usage) => Some(usage)
                             });
                             foreach(node <- successors) {
                                 if (not (node `MutSet.memberOf` explored)) {

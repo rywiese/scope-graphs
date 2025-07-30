@@ -62,6 +62,7 @@ mod SG.Phase.Scoper {
                         edges |> MutMap.put(namespace, newList)
                     }
                     case Some(oldList) => {
+                        // TODO: pushIfAbset?
                         oldList |> MutList.push(edge)
                     }
                 }
@@ -75,7 +76,9 @@ mod SG.Phase.Scoper {
                 })
             } with handler MarkUse {
                 def markUse(used, resume) = {
-                    addEdge(currentScope(), Edge.Use(used));
+                    foreach(namespace <- used |> Refr.possibleInterpretations) {
+                        addEdge(currentScope(), Edge.Use(namespace))
+                    };
                     resume(())
                 }
             } with handler MarkDecl {
@@ -219,6 +222,8 @@ mod SG.Phase.Scoper {
             loc
         } = coerce(enumCase);
         let (_, newTerms) = visitTpes(Set.empty(), terms);
+        // TODO: should this be in parent scope? I think maybe not...
+        // do we force Enum.Case in the same module, unless there is an import?
         inParentScope(() -> {
             declare(Kind.Var, Decl.EnumCase, name, handle -> EnumCase.EnumCase({
                 ac = ac,
@@ -317,6 +322,7 @@ mod SG.Phase.Scoper {
             case ParsedAst.Exp.Bool(b, loc) => ScopeGraph.Exp.Bool(b, loc)
         }
 
+    // TODO: Bug! if we visit an enum case, shouldn't the previous qualifier be an enum, not a module?
     def visitName(kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ CurrentScope =
         let { qualifiers, name = id, loc = _ } = coerce(name);
         let namespace = CurrentScope.get();
