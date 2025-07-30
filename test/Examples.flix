@@ -16,6 +16,9 @@ mod SG.Test.Examples {
     @Test
     pub def list(): Bool \ IO = checkOneFile("./examples/list.flixsg")
 
+    @Test
+    pub def usage(): Bool \ IO = checkOneFile("./examples/usage.flixsg")
+
     def checkOneFile(path: String): Bool \ IO = run region rc {
         let man = Manager.empty(rc);
         man |> Manager.addFileIfNotPresent(path);

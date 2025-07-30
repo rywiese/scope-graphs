@@ -1,0 +1,27 @@
+pub mod A {
+    pub mod B {
+        pub def c(): Int32 = {
+            5
+        }
+        pub mod C {
+            pub def ignoreMe(): Int32 = {
+                5
+            }
+        }
+        pub enum C {
+            pub case D
+        }
+    }
+    pub enum B {
+        pub case C
+    }
+}
+
+pub def ry(x: Int32, y: Int32): Int32 = {
+    A.B.c
+}
+
+pub mod D {
+    use A.B.c
+    use A.B.C
+}
