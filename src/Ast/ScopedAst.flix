@@ -1,12 +1,12 @@
 mod SG.Ast {
+    use SG.Ast.ScopeGraph.Decls
     use SG.Ast.ScopeGraph.Edge
-    use SG.Ast.ScopeGraph.Namespace
     use SG.Ast.ScopeGraph.Scope
     use SG.Ast.Shared.Location.Source
 
     pub enum ScopeGraph({
-        nodes = Map[Source, Scope],
-        edges = Map[Namespace, List[Edge]]
+        nodes = Map[Source, Decls],
+        edges = Map[Scope, List[Edge]]
     })
 }
 
@@ -20,7 +20,7 @@ mod SG.Ast.ScopeGraph {
     use SG.Ast.Shared.Location.LocString
     use SG.Ast.Shared.Location.Source
 
-    pub enum Scope({
+    pub enum Decls({
         uses = List[Use],
         modules = List[Module],
         aliases = List[TypeAlias],
@@ -32,22 +32,23 @@ mod SG.Ast.ScopeGraph {
     pub enum Use({
         ac = Access,
         usage = Refr,
-        renaming = Option[LocString], // handle???
+        renaming = Option[Handle], // finder
         loc = LocRange
     })
 
     pub enum Module({
         ac = Access,
-        qualifier = Option[Refr],
+        qualifiers = List[Handle],
         handle = Handle,
-        scope = Scope,
+        introduces = Scope,
+        decls = Decls,
         loc = LocRange
     })
 
     pub enum TypeAlias({
         ac = Access,
         handle = Handle,
-        args = List[LocString],
+        args = List[Handle],
         tpe = Tpe,
         loc = LocRange
     })
@@ -55,7 +56,8 @@ mod SG.Ast.ScopeGraph {
     pub enum Enum({
         ac = Access,
         handle = Handle,
-        args = List[LocString],
+        introduces = Scope,
+        args = List[Handle],
         cases = List[EnumCase],
         loc = LocRange
     })
@@ -70,14 +72,14 @@ mod SG.Ast.ScopeGraph {
     pub enum Def({
         ac = Access,
         handle = Handle,
-        args = List[(LocString, Tpe)],
+        args = List[(Handle, Tpe)],
         tpe = Tpe,
         exp = Exp,
         loc = LocRange
     })
 
     pub enum Exp {
-        case Let(LocString, Exp, Exp, LocRange)
+        case Let(Handle, Exp, Exp, LocRange)
         case Stmt(Exp, Exp, LocRange)
         case App(Exp, List[Exp], LocRange)
         case Refr(Refr, LocRange)
@@ -92,15 +94,15 @@ mod SG.Ast.ScopeGraph {
         case App(Tpe, List[Tpe], LocRange)
     }
 
-    pub enum Handle(Kind, LocString, Namespace)
+    pub enum Handle(Kind, LocString)
 
     mod Handle {
         use PartialOrder.lessEqual
         use SG.Ast.ScopeGraph.Kind
         use SG.Ast.ScopeGraph.Decl
         use SG.Ast.ScopeGraph.Handle
-        use SG.Ast.ScopeGraph.Namespace
         use SG.Ast.ScopeGraph.Refr
+        use SG.Ast.ScopeGraph.Scope
         use SG.Ast.Shared.Location.LocString
 
         pub def handle(decl: Decl): Handle =
@@ -115,55 +117,52 @@ mod SG.Ast.ScopeGraph {
             }
 
         pub def matches(refr: Refr, handle: Handle): Bool =
-            let Handle.Handle(handleKind, handleName, _) = handle;
-            let refrKind = coerce(refr)#kind;
-            let refrName = coerce(refr)#name;
+            let Handle.Handle(handleKind, handleName) = handle;
+            let refrKind = refr |> Refr.kind;
+            let refrName = refr |> Refr.name;
             handleKind `lessEqual` refrKind and coerce(handleName)#s == coerce(refrName)#s
             
     }
 
-    pub enum Refr with Eq, Order, ToString {
-        case Refr(
+    pub enum Refr {
+        case Unqualified(
+            Kind, // maybe we can replace this with a "filter" concept
+            LocString,
+            Scope // referenced in
+        )
+        case Qualified(
             Kind,
-            Option[Refr], // qualifier
-            LocString, // name
-            Namespace // referencedIn (not qualifiers)
+            Refr, // qualifier
+            LocString
         )
     }
 
     mod Refr {
         use SG.Ast.ScopeGraph.Kind
-        use SG.Ast.ScopeGraph.Namespace
+        use SG.Ast.ScopeGraph.Scope
+        use SG.Ast.Shared.Location.LocString
 
-        // May be interesting to narrow this down with a regex of sorts
-        // Part of the configuration/spec could be a regex of allowed import types
-        // Maybe each Refr has a regex??
-        pub def possibleInterpretations(refr: Refr): List[Namespace] =
-            let { kind, qualifier, name, referencedIn = _ } = coerce(refr);
-            let id = coerce(name)#s;
-            qualifier
-                |> Option.map(possibleInterpretations)
-                |> Option.getWithDefault(Namespace.Top :: Nil)
-                |> List.flatMap(parent -> match kind {
-                    // TODO: Helper functions for both directions of Kind <-> Namespace mapping?
-                    case Kind.Module => Namespace.Module(id, parent) :: Nil
-                    case Kind.Tpe => Namespace.TypeAlias(id, parent)
-                        :: Namespace.Enum(id, parent)
-                        :: Nil
-                    case Kind.Var => Namespace.Def(id, parent)
-                        :: Namespace.Let(id, parent)
-                        :: Nil
-                    case Kind.Any => Namespace.Module(id, parent)
-                        :: Namespace.TypeAlias(id, parent)
-                        :: Namespace.Enum(id, parent)
-                        :: Namespace.Def(id, parent)
-                        :: Namespace.Let(id, parent)
-                        :: Nil
-                })
+        pub def kind(refr: Refr): Kind =
+            match refr {
+                case Unqualified(kind, _, _) => kind
+                case Qualified(kind, _, _) => kind
+            }
+
+        pub def name(refr: Refr): LocString =
+            match refr {
+                case Unqualified(_, name, _) => name
+                case Qualified(_, _, name) => name
+            }
+
+        pub def referencedIn(refr: Refr): Scope =
+            match refr {
+                case Unqualified(_, _, referencedIn) => referencedIn
+                case Qualified(_, qualifier, _) => qualifier |> referencedIn
+            }
     }
 
     pub enum AstNode {
-        case Scope(Scope)
+        case Decls(Decls)
         case Use(Use)
         case Module(Module)
         case TypeAlias(TypeAlias)
@@ -184,13 +183,14 @@ mod SG.Ast.ScopeGraph {
         case Var
     }
 
-    pub enum Namespace with Eq, Order, ToString {
-        case Top
-        case Module(String, Namespace)
-        case TypeAlias(String, Namespace)
-        case Enum(String, Namespace)
-        case Def(String, Namespace)
-        case Let(String, Namespace)
+    pub enum Scope with Eq, Order, ToString {
+        case Scope(Int32)
+    }
+
+    mod Scope {
+        use SG.Ast.ScopeGraph.Scope
+
+        pub def top(): Scope = Scope.Scope(0)
     }
 
     pub enum Decl {
@@ -206,6 +206,7 @@ mod SG.Ast.ScopeGraph {
     mod Decl {
         use SG.Ast.ScopeGraph.Decl
         use SG.Ast.ScopeGraph.Handle
+        use SG.Ast.ScopeGraph.Scope
 
         pub def handle(decl: Decl): Handle =
             match decl {
@@ -217,17 +218,26 @@ mod SG.Ast.ScopeGraph {
                 case Decl.TpeVar(handle) => handle
                 case Decl.Var(handle) => handle
             }
-            
+
+        pub def associatedScope(decl: Decl): Option[Scope] =
+            match decl {
+                case Module(module) => Some(coerce(module)#introduces)
+                case Enum(eenum) => Some(coerce(eenum)#introduces)
+                case _ => None
+            }
+
     }
 
     pub enum Edge {
-        case Lex(Namespace)
-        case Use(Namespace)
+        case Lex(Scope)
+        case Use(Refr) // Conceptually, this is a Decl, but making it a Refr allows us to find the target Decl of the edge during resolution, rather than construction
         case Decl(Decl)
     }
 
     mod Edge {
+        use SG.Ast.ScopeGraph.Decl
         use SG.Ast.ScopeGraph.EdgeType
+        use SG.Ast.ScopeGraph.Scope
 
         pub def edgeType(edge: Edge): EdgeType =
             match edge {
@@ -239,7 +249,7 @@ mod SG.Ast.ScopeGraph {
 
     // Instances
 
-    instance Coerce[Scope] {
+    instance Coerce[Decls] {
         type Out = {
             uses = List[Use],
             modules = List[Module],
@@ -249,7 +259,7 @@ mod SG.Ast.ScopeGraph {
             loc = LocRange
         }
     
-        pub def coerce(x: Scope): {
+        pub def coerce(x: Decls): {
             uses = List[Use],
             modules = List[Module],
             aliases = List[TypeAlias],
@@ -257,26 +267,26 @@ mod SG.Ast.ScopeGraph {
             defs = List[Def],
             loc = LocRange
         } =
-            let Scope.Scope(r) = x;
+            let Decls.Decls(r) = x;
             r
     }
 
-    instance Located[Scope] {
-        pub def getLoc(x: Scope): LocRange = coerce(x)#loc
+    instance Located[Decls] {
+        pub def getLoc(x: Decls): LocRange = coerce(x)#loc
     }
 
     instance Coerce[Use] {
         type Out = {
             ac = Access,
             usage = Refr,
-            renaming = Option[LocString],
+            renaming = Option[Handle],
             loc = LocRange
         }
     
         pub def coerce(x: Use): {
             ac = Access,
             usage = Refr,
-            renaming = Option[LocString],
+            renaming = Option[Handle],
             loc = LocRange
         } =
             let Use.Use(r) = x;
@@ -290,17 +300,19 @@ mod SG.Ast.ScopeGraph {
     instance Coerce[Module] {
         type Out = {
             ac = Access,
-            qualifier = Option[Refr],
+            qualifiers = List[Handle],
             handle = Handle,
-            scope = Scope,
+            introduces = Scope,
+            decls = Decls,
             loc = LocRange
         }
     
         pub def coerce(x: Module): {
             ac = Access,
-            qualifier = Option[Refr],
+            qualifiers = List[Handle],
             handle = Handle,
-            scope = Scope,
+            introduces = Scope,
+            decls = Decls,
             loc = LocRange
         } =
             let Module.Module(r) = x;
@@ -315,7 +327,7 @@ mod SG.Ast.ScopeGraph {
         type Out = {
             ac = Access,
             handle = Handle,
-            args = List[LocString],
+            args = List[Handle],
             tpe = Tpe,
             loc = LocRange
         }
@@ -323,7 +335,7 @@ mod SG.Ast.ScopeGraph {
         pub def coerce(x: TypeAlias): {
             ac = Access,
             handle = Handle,
-            args = List[LocString],
+            args = List[Handle],
             tpe = Tpe,
             loc = LocRange
         } =
@@ -339,7 +351,8 @@ mod SG.Ast.ScopeGraph {
         type Out = {
             ac = Access,
             handle = Handle,
-            args = List[LocString],
+            introduces = Scope,
+            args = List[Handle],
             cases = List[EnumCase],
             loc = LocRange
         }
@@ -347,7 +360,8 @@ mod SG.Ast.ScopeGraph {
         pub def coerce(x: Enum): {
             ac = Access,
             handle = Handle,
-            args = List[LocString],
+            introduces = Scope,
+            args = List[Handle],
             cases = List[EnumCase],
             loc = LocRange
         } =
@@ -385,7 +399,7 @@ mod SG.Ast.ScopeGraph {
         type Out = {
             ac = Access,
             handle = Handle,
-            args = List[(LocString, Tpe)],
+            args = List[(Handle, Tpe)],
             tpe = Tpe,
             exp = Exp,
             loc = LocRange
@@ -394,7 +408,7 @@ mod SG.Ast.ScopeGraph {
         pub def coerce(x: Def): {
             ac = Access,
             handle = Handle,
-            args = List[(LocString, Tpe)],
+            args = List[(Handle, Tpe)],
             tpe = Tpe,
             exp = Exp,
             loc = LocRange
@@ -431,35 +445,13 @@ mod SG.Ast.ScopeGraph {
 
     instance Located[Handle] {
         pub def getLoc(x: Handle): LocRange =
-            let Handle.Handle(_, name, _) = x;
+            let Handle.Handle(_, name) = x;
             Located.getLoc(name)
-    }
-
-    instance Coerce[Refr] {
-        type Out = {
-            kind = Kind,
-            qualifier = Option[Refr],
-            name = LocString,
-            referencedIn = Namespace
-        }
-
-        pub def coerce(x: Refr): {
-            kind = Kind,
-            qualifier = Option[Refr],
-            name = LocString,
-            referencedIn = Namespace
-        } =
-            let Refr.Refr(kind, qualifier, name, referencedIn) = x; {
-                kind = kind,
-                qualifier = qualifier,
-                name = name,
-                referencedIn = referencedIn
-            }
     }
 
     instance Located[Refr] {
         pub def getLoc(x: Refr): LocRange =
-            coerce(x)#name |> Located.getLoc
+            x |> Refr.name |> Located.getLoc
     }
 
     instance PartialOrder[Kind] {
@@ -473,7 +465,7 @@ mod SG.Ast.ScopeGraph {
     instance Located[AstNode] {
         pub def getLoc(x: AstNode): LocRange =
             match x {
-                case AstNode.Scope(scope) => scope |> Located.getLoc
+                case AstNode.Decls(decls) => decls |> Located.getLoc
                 case AstNode.Use(usage) => usage |> Located.getLoc
                 case AstNode.Module(module) => module |> Located.getLoc
                 case AstNode.TypeAlias(typeAlias) => typeAlias |> Located.getLoc

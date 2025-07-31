@@ -3,13 +3,13 @@ mod SG.Ast.Util.Finder {
 
     use SG.Ast.ScopeGraph
     use SG.Ast.ScopeGraph.AstNode
+    use SG.Ast.ScopeGraph.Decls
     use SG.Ast.ScopeGraph.Def
     use SG.Ast.ScopeGraph.Enum
     use SG.Ast.ScopeGraph.EnumCase
     use SG.Ast.ScopeGraph.Exp
     use SG.Ast.ScopeGraph.Module
     use SG.Ast.ScopeGraph.Refr
-    use SG.Ast.ScopeGraph.Scope
     use SG.Ast.ScopeGraph.Tpe
     use SG.Ast.ScopeGraph.TypeAlias
     use SG.Ast.ScopeGraph.Use
@@ -21,12 +21,12 @@ mod SG.Ast.Util.Finder {
     // finds the smallest/leafiest node that this loc is contained by?
     pub def find(loc: Loc, visitor: AstNode -> Unit \ ef, ast: ScopeGraph): Option[AstNode] \ ef = {
         let ScopeGraph.ScopeGraph({ nodes, edges = _ }) = ast;
-        nodes |> Map.get(coerce(loc)#src) |> Option.flatMap(findScope(loc, visitor))
+        nodes |> Map.get(coerce(loc)#src) |> Option.flatMap(findDecls(loc, visitor))
     }
 
-    def findScope(loc: Loc, visitor: AstNode -> Unit \ ef, scope: Scope): Option[AstNode] \ ef = {
-        (loc, scope) ||> ifContained(() -> {
-            visitor(AstNode.Scope(scope));
+    def findDecls(loc: Loc, visitor: AstNode -> Unit \ ef, decls: Decls): Option[AstNode] \ ef = {
+        (loc, decls) ||> ifContained(() -> {
+            visitor(AstNode.Decls(decls));
             let {
                 uses,
                 modules,
@@ -34,13 +34,13 @@ mod SG.Ast.Util.Finder {
                 enums,
                 defs,
                 loc = _
-            } = coerce(scope);
+            } = coerce(decls);
             uses |> getFirst(findUse(loc, visitor)) |> orElse(() ->
                 modules |> getFirst(findModule(loc, visitor)) |> orElse(() ->
                     aliases |> getFirst(findAlias(loc, visitor)) |> orElse(() ->
                         enums |> getFirst(findEnum(loc, visitor)) |> orElse(() ->
                             defs |> getFirst(findDef(loc, visitor)) |> orElse(() ->
-                                Some(AstNode.Scope(scope))
+                                Some(AstNode.Decls(decls))
                             )
             ))))
         })
@@ -66,16 +66,17 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.Module(module));
             let {
                 ac = _,
-                qualifier,
+                qualifiers = _,
                 handle = _, // TODO: return handle node?
-                scope,
+                introduces = _,
+                decls,
                 loc = _
             } = coerce(module);
-            qualifier |> Option.flatMap(findRefr(loc, visitor)) |> orElse(() ->
-                scope |> findScope(loc, visitor) |> orElse(() ->
+            // qualifiers |> Option.flatMap(findRefr(loc, visitor)) |> orElse(() ->
+                decls |> findDecls(loc, visitor) |> orElse(() ->
                     Some(AstNode.Module(module))
                 )
-            )
+            // )
         })
     }
 
@@ -101,6 +102,7 @@ mod SG.Ast.Util.Finder {
             let {
                 ac = _,
                 handle = _,
+                introduces = _,
                 args = _,
                 cases,
                 loc = _
