@@ -47,6 +47,9 @@ mod SG.Ast.ScopeGraph {
                     >> Option.getWithDefault(List.empty())
                 )
                 // TODO: filter out long paths (multiple nodes will have different bfs results)
+                // TODO: the below is maybe too aggressive a filtering
+                |> List.head
+                |> Option.toList
             case Refr.Unqualified(_, _, referencedIn) => graph |> bfs(referencedIn, src)
         }
 
@@ -69,7 +72,7 @@ mod SG.Ast.ScopeGraph {
                                 Nil
                             }
                             case Edge.Lex(_) => Nil
-                            case Edge.Use(usage) => graph |> findDecls(usage)
+                            case Edge.Use(usage) => graph |> findDecls(usage) // this is bad. we can't start a new bfs inside an existing one or we'll never terminate
                         });
                         if (not (matches |> List.isEmpty)) {
                             Ok(matches)
