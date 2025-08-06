@@ -97,7 +97,6 @@ mod SG.Ast.ScopeGraph {
     pub enum Handle(Kind, LocString)
 
     mod Handle {
-        use PartialOrder.lessEqual
         use SG.Ast.ScopeGraph.Kind
         use SG.Ast.ScopeGraph.Decl
         use SG.Ast.ScopeGraph.Handle
@@ -105,22 +104,11 @@ mod SG.Ast.ScopeGraph {
         use SG.Ast.ScopeGraph.Scope
         use SG.Ast.Shared.Location.LocString
 
-        pub def handle(decl: Decl): Handle =
-            match decl {
-                case Decl.Module(module) => coerce(module)#handle
-                case Decl.TypeAlias(typeAlias) => coerce(typeAlias)#handle
-                case Decl.Enum(eenum) => coerce(eenum)#handle
-                case Decl.EnumCase(enumCase) => coerce(enumCase)#handle
-                case Decl.Def(deff) => coerce(deff)#handle
-                case Decl.TpeVar(handle) => handle
-                case Decl.Var(handle) => handle
-            }
-
         pub def matches(refr: Refr, handle: Handle): Bool =
             let Handle.Handle(handleKind, handleName) = handle;
             let refrKind = refr |> Refr.kind;
             let refrName = refr |> Refr.name;
-            handleKind `lessEqual` refrKind and coerce(handleName)#s == coerce(refrName)#s
+            (handleKind == Kind.Any or refrKind == Kind.Any or handleKind == refrKind) and (coerce(handleName)#s == coerce(refrName)#s)
             
     }
 
@@ -201,6 +189,7 @@ mod SG.Ast.ScopeGraph {
         case Def(Def)
         case TpeVar(Handle)
         case Var(Handle)
+        case Rename(Handle)
     }
 
     mod Decl {
@@ -217,6 +206,7 @@ mod SG.Ast.ScopeGraph {
                 case Decl.Def(deff) => coerce(deff)#handle
                 case Decl.TpeVar(handle) => handle
                 case Decl.Var(handle) => handle
+                case Decl.Rename(handle) => handle
             }
 
         pub def associatedScope(decl: Decl): Option[Scope] =
@@ -454,13 +444,13 @@ mod SG.Ast.ScopeGraph {
             x |> Refr.name |> Located.getLoc
     }
 
-    instance PartialOrder[Kind] {
-        pub def lessEqual(x: Kind, y: Kind): Bool =
-            match y {
-                case Kind.Any => true
-                case _ => x == y
-            }
-    }
+    // instance PartialOrder[Kind] {
+    //     pub def lessEqual(x: Kind, y: Kind): Bool =
+    //         match y {
+    //             case Kind.Any => true
+    //             case _ => x == y
+    //         }
+    // }
 
     instance Located[AstNode] {
         pub def getLoc(x: AstNode): LocRange =

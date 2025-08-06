@@ -66,7 +66,7 @@ mod SG.Phase.Scoper {
                         edges |> MutMap.put(scope, newList)
                     }
                     case Some(oldList) => {
-                        // TODO: pushIfAbset?
+                        // TODO: pushIfAbsent?
                         oldList |> MutList.push(edge)
                     }
                 }
@@ -130,7 +130,7 @@ mod SG.Phase.Scoper {
             loc = loc
         })
 
-    def visitUse(uze: ParsedAst.Use): ScopeGraph.Use \ CurrentScope + MarkUse =
+    def visitUse(uze: ParsedAst.Use): ScopeGraph.Use \ CurrentScope + MarkUse + MarkDecl =
         let {
             ac,
             name,
@@ -142,7 +142,7 @@ mod SG.Phase.Scoper {
         Use.Use({
             ac = ac,
             usage = usage,
-            renaming = renaming |> Option.map(Handle.Handle(Kind.Any)), // mark decl
+            renaming = renaming |> Option.map(id -> declare(Kind.Any, Decl.Rename, id, handle -> handle)),
             loc = loc
         })
 
