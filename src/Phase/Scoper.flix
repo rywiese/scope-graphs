@@ -142,7 +142,7 @@ mod SG.Phase.Scoper {
         Use.Use({
             ac = ac,
             usage = usage,
-            renaming = renaming |> Option.map(Handle.Handle(Kind.Any)),
+            renaming = renaming |> Option.map(Handle.Handle(Kind.Any)), // mark decl
             loc = loc
         })
 
@@ -173,7 +173,7 @@ mod SG.Phase.Scoper {
         declareInFreshScope(Kind.Tpe, Decl.TypeAlias, name, _ -> handle -> TypeAlias.TypeAlias({
             ac = ac,
             handle = handle,
-            args = args |> List.map(arg -> declare(Kind.Var, Decl.TpeVar, arg, argHandle -> argHandle)),
+            args = args |> List.map(arg -> declare(Kind.Tpe, Decl.TpeVar, arg, argHandle -> argHandle)),
             tpe = {
                 let boundVars = args
                     |> List.map(arg -> coerce(arg)#s)
