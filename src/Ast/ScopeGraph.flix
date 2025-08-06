@@ -72,7 +72,10 @@ mod SG.Ast.ScopeGraph {
                                 Nil
                             }
                             case Edge.Lex(_) => Nil
-                            case Edge.Use(usage) => graph |> findDecls(usage) // this is bad. we can't start a new bfs inside an existing one or we'll never terminate
+                            case Edge.Use(_usage) => Nil
+                                // this is bad. we can't start a new bfs inside an existing one or we'll never terminate
+                                // unless... maybe we pass in a new regex that doesn't allow crossing imports again...
+                                // graph |> findDecls(usage)
                         });
                         if (not (matches |> List.isEmpty)) {
                             Ok(matches)

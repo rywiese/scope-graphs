@@ -192,23 +192,31 @@ mod SG.Phase.Scoper {
             cases,
             loc
         } = coerce(eenum);
-        declareInFreshScope(Kind.Tpe, Decl.Enum, name, scope -> handle -> Enum.Enum({
-            ac = ac,
-            handle = handle,
-            introduces = scope,
-            args = args |> List.map(arg -> declare(Kind.Var, Decl.TpeVar, arg, argHandle -> argHandle)),
-            cases = cases |> List.map(visitEnumCase),
-            loc = loc
-        }))
+        declareInFreshScope(Kind.Tpe, Decl.Enum, name, scope -> handle -> {
+            let newArgs = args |> List.map(arg -> declare(Kind.Tpe, Decl.TpeVar, arg, argHandle -> argHandle));
+            let boundVars = newArgs |> List.map(arg -> {
+                let Handle.Handle(_, l) = arg;
+                coerce(l)#s
+            }) |> List.toSet;
+            let newCases = cases |> List.map(visitEnumCase(boundVars));
+            Enum.Enum({
+                ac = ac,
+                handle = handle,
+                introduces = scope,
+                args = newArgs,
+                cases = newCases,
+                loc = loc
+            })
+        })
 
-    def visitEnumCase(enumCase: ParsedAst.EnumCase): ScopeGraph.EnumCase \ CurrentScope + MarkDecl =
+    def visitEnumCase(boundVars: Set[String], enumCase: ParsedAst.EnumCase): ScopeGraph.EnumCase \ CurrentScope + MarkDecl =
         let {
             ac,
             name,
             terms,
             loc
         } = coerce(enumCase);
-        let (_, newTerms) = visitTpes(Set.empty(), terms); // TODO: Scoping
+        let (_, newTerms) = visitTpes(boundVars, terms); // TODO: Scoping
         declare(Kind.Var, Decl.EnumCase, name, handle -> EnumCase.EnumCase({
             ac = ac,
             handle = handle,
@@ -252,10 +260,7 @@ mod SG.Phase.Scoper {
                     if (id `memberOf` boundVars) {
                         (boundVars, ScopeGraph.Tpe.BoundVar(visitName(Kind.Tpe, name)))
                     } else {
-                        let handle = Handle.Handle(Kind.Var, locId);
-                        // TODO: skeptical of markDecls that don't get wrapped in AST
-                        markDecl(Decl.TpeVar(handle));
-                        (boundVars |> Set.insert(id), ScopeGraph.Tpe.FreeVar(handle))
+                        (boundVars |> Set.insert(id), ScopeGraph.Tpe.FreeVar(declare(Kind.Tpe, Decl.TpeVar, locId, handle -> handle)))
                     }
                 } else {
                     (boundVars, ScopeGraph.Tpe.Base(visitName(Kind.Tpe, name)))
