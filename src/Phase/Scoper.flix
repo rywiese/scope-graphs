@@ -305,11 +305,11 @@ mod SG.Phase.Scoper {
             case ParsedAst.Exp.Bool(b, loc) => ScopeGraph.Exp.Bool(b, loc)
         }
 
-    def visitName(kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ CurrentScope =
+    def visitName(_kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ CurrentScope =
         let { qualifiers, name = id, loc = _ } = coerce(name);
         let scope = currentScope();
         let (unqualified, qualified) = newtonBall(qualifiers, id);
-        (Refr.Unqualified(kind, unqualified, scope), qualified) ||> List.foldLeft(Refr.Qualified(Kind.Any))
+        (Refr.Unqualified(Kind.Any, unqualified, scope), qualified) ||> List.foldLeft(Refr.Qualified(Kind.Any))
 
     def newtonBall(xs: List[t], x: t): (t, List[t]) =
         match List.head(xs) {

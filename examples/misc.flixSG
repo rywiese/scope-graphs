@@ -17,7 +17,7 @@ pub mod List {
     use Network.Http
 
     pub def empty(): List[t] = {
-        Nil
+        List.Nil
     }
 
     pub def toString(l: List[Q.T]): String = {

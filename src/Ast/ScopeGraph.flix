@@ -73,8 +73,12 @@ mod SG.Ast.ScopeGraph {
                             }
                             case Edge.Lex(_) => Nil
                             case Edge.Use(_usage) => Nil
-                                // this is bad. we can't start a new bfs inside an existing one or we'll never terminate
-                                // unless... maybe we pass in a new regex that doesn't allow crossing imports again...
+                                // this does not terminate at the moment, since we just start a new bfs at a different node
+                                // which can go on indefinitely.
+                                // this should work though once we start enforcing the regex.
+                                // this edge would "consume" from the regex and, assuming transitive imports are not allowed,
+                                // the recursive call would not be able to again recurse on another `Use` edge.
+
                                 // graph |> findDecls(usage)
                         });
                         if (not (matches |> List.isEmpty)) {
