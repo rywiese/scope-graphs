@@ -5,7 +5,7 @@ mod SG.Ast.ScopeGraph {
     type alias Path = List[Edge]
 
     pub enum EdgeType with Eq {
-        case Decl
+        case Dec
         case Use
         case Lex
     }
@@ -14,7 +14,7 @@ mod SG.Ast.ScopeGraph {
         pub def compare(x: EdgeType, y: EdgeType): Comparison =
             def rank(e: EdgeType) = {
                 match e {
-                    case EdgeType.Decl => 1
+                    case EdgeType.Dec => 1
                     case EdgeType.Lex => 2
                     case EdgeType.Use => 3
                 }
@@ -34,27 +34,27 @@ mod SG.Ast.ScopeGraph {
 
     pub def findHandle(src: Refr, graph: ScopeGraph): Option[Handle] =
         graph
-            |> findDecls(src)
+            |> findDecls(src, true)
             |> List.head
             |> Option.map(Decl.handle)
 
-    pub def findDecls(src: Refr, graph: ScopeGraph): List[Decl] =
+    pub def findDecls(src: Refr, uses: Bool, graph: ScopeGraph): List[Decl] =
         match src {
             case Refr.Qualified(_, qualifier, _) => graph
-                |> findDecls(qualifier)
+                |> findDecls(qualifier, uses)
                 |> List.flatMap(Decl.associatedScope
-                    >> Option.map(node -> graph |> bfs(node, src))
+                    >> Option.map(node -> graph |> bfs(node, src, uses))
                     >> Option.getWithDefault(List.empty())
                 )
                 // TODO: filter out long paths (multiple nodes will have different bfs results)
                 // TODO: the below is maybe too aggressive a filtering
                 |> List.head
                 |> Option.toList
-            case Refr.Unqualified(_, _, referencedIn) => graph |> bfs(referencedIn, src)
+            case Refr.Unqualified(_, _, referencedIn) => graph |> bfs(referencedIn, src, uses)
         }
 
     // All paths of length n where n is the shortest path
-    def bfs(src: Scope, refr: Refr, graph: ScopeGraph): List[Decl] =
+    def bfs(src: Scope, refr: Refr, uses: Bool, graph: ScopeGraph): List[Decl] =
         region rc {
             let queue = MutList.empty(rc) !> MutList.push(src);
             let explored = MutSet.empty(rc) !> MutSet.add(src);
@@ -65,21 +65,14 @@ mod SG.Ast.ScopeGraph {
                         let outgoing = graph
                             |> outgoingEdges(node)
                             |> List.sortBy(Edge.edgeType);
-                        let matches = outgoing |> List.flatMap(edge -> match edge {
+                        let matches = outgoing |> List.filterMap(edge -> match edge {
                             case Edge.Decl(decl) => if (refr `matches` decl |> Decl.handle) {
-                                decl :: Nil
+                                Some(decl)
                             } else {
-                                Nil
+                                None
                             }
-                            case Edge.Lex(_) => Nil
-                            case Edge.Use(_usage) => Nil
-                                // this does not terminate at the moment, since we just start a new bfs at a different node
-                                // which can go on indefinitely.
-                                // this should work though once we start enforcing the regex.
-                                // this edge would "consume" from the regex and, assuming transitive imports are not allowed,
-                                // the recursive call would not be able to again recurse on another `Use` edge.
-
-                                // graph |> findDecls(usage)
+                            case Edge.Lex(_) => None
+                            case Edge.Use(_) => None
                         });
                         if (not (matches |> List.isEmpty)) {
                             Ok(matches)
@@ -91,10 +84,16 @@ mod SG.Ast.ScopeGraph {
                 match result {
                     case Ok(found) => found
                     case Err(outgoing) => {
-                        let successors = outgoing |> List.findMap(edge -> match edge {
-                            case Edge.Decl(_) => None
-                            case Edge.Lex(parent) => Some(parent)
-                            case Edge.Use(_) => None
+                        let successors = outgoing |> List.flatMap(edge -> match edge {
+                            case Edge.Decl(_) => Nil
+                            case Edge.Lex(parent) => parent :: Nil
+                            case Edge.Use(usage) => if (uses) {
+                                graph
+                                    |> findDecls(usage, false)
+                                    |> List.filterMap(Decl.associatedScope)
+                            } else {
+                                Nil
+                            }
                         });
                         foreach(node <- successors) {
                             if (not (node `MutSet.memberOf` explored)) {

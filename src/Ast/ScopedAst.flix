@@ -233,7 +233,7 @@ mod SG.Ast.ScopeGraph {
             match edge {
                 case Lex(_) => EdgeType.Lex
                 case Use(_) => EdgeType.Use
-                case Decl(_) => EdgeType.Decl
+                case Decl(_) => EdgeType.Dec
             }
     }
 

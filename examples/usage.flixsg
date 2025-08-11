@@ -4,7 +4,7 @@ pub mod A {
             5
         }
         pub mod C {
-            pub def ignoreMe(): Int32 = {
+            pub def f(): Int32 = {
                 5
             }
         }
@@ -17,7 +17,7 @@ pub mod A {
     }
 }
 
-pub def ry(x: Int32, y: Int32): Int32 = {
+pub def g(x: Int32, y: Int32): Int32 = {
     A.B.c
 }
 

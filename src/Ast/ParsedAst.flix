@@ -105,13 +105,6 @@ mod SG.Ast.ParsedAst {
         case Tpe(Tpe)
     }
 
-    // pub enum NodeCategory with Eq, Order, ToString {
-    //     case Any
-    //     case Module
-    //     case Tpe
-    //     case Var
-    // }
-
     //
     // Better Constructors.
     //
