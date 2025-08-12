@@ -199,10 +199,15 @@ mod SG.Ast.Util.Finder {
     }
 
     def findRefr(loc: Loc, visitor: AstNode -> Unit \ ef, refr: Refr): Option[AstNode] \ ef = {
-        (loc, refr) ||> ifContained(() -> {
-            visitor(AstNode.Refr(refr));
-            Some(AstNode.Refr(refr))
-        })
+        (loc, refr)
+            ||> ifContained(() -> {
+                visitor(AstNode.Refr(refr));
+                Some(AstNode.Refr(refr))
+            })
+            |> orElse(_ -> match refr {
+                case Refr.Qualified(_, qualifier, _) => findRefr(loc, visitor, qualifier)
+                case Refr.Unqualified(_, _, _) => None
+            })
     }
 
     def contains(loc: Loc, thing: thing): Bool with Located[thing] = {

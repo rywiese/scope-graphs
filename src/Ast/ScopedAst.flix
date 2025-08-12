@@ -38,7 +38,6 @@ mod SG.Ast.ScopeGraph {
 
     pub enum Module({
         ac = Access,
-        // qualifiers = List[Handle],
         handle = Handle,
         introduces = Scope,
         decls = Decls,
@@ -444,14 +443,6 @@ mod SG.Ast.ScopeGraph {
         pub def getLoc(x: Refr): LocRange =
             x |> Refr.name |> Located.getLoc
     }
-
-    // instance PartialOrder[Kind] {
-    //     pub def lessEqual(x: Kind, y: Kind): Bool =
-    //         match y {
-    //             case Kind.Any => true
-    //             case _ => x == y
-    //         }
-    // }
 
     instance Located[AstNode] {
         pub def getLoc(x: AstNode): LocRange =
