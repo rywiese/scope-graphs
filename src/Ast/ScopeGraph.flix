@@ -70,44 +70,34 @@ mod SG.Ast.ScopeGraph {
                         let outgoing = graph
                             |> outgoingEdges(node)
                             |> List.sortBy(Edge.edgeType);
-                        let matches = outgoing |> List.flatMap(edge -> match edge {
-                            case Edge.Decl(decl) => if (refr `matches` decl |> Decl.handle) {
-                                decl :: Nil
-                            } else {
-                                Nil
-                            }
-                            case Edge.Lex(_) => Nil
-                            case Edge.Use(usage) => if (uses) {
-                                // TODO: probably shouldn't recompute this
-                                graph
-                                    |> findDecls(usage, false)
-                                    |> List.filter(decl -> refr `matches` decl |> Decl.handle)
-                            } else {
-                                Nil
-                            }
-                        });
+                        let (candidates, successors) = outgoing
+                            |> List.map(edge -> match edge {
+                                case Edge.Decl(decl) => (decl :: Nil, Nil)
+                                case Edge.Lex(parent) => (Nil, parent :: Nil)
+                                case Edge.Use(usage) => if (uses) {
+                                    let candidates = graph |> findDecls(usage, false);
+                                    let successors = candidates |> List.filterMap(Decl.associatedScope);
+                                    (candidates, successors)
+                                } else {
+                                    (Nil, Nil)
+                                }
+                            })
+                            |> List.foldLeft(pair -> acc -> {
+                                let (candidates, successors) = pair;
+                                let (accCandidates, accSuccessors) = acc;
+                                (candidates ++ accCandidates, successors ++ accSuccessors)
+                            }, (Nil, Nil));
+                        let matches = candidates |> List.filter(decl -> refr `matches` decl |> Decl.handle);
                         if (not (matches |> List.isEmpty)) {
                             Ok(matches)
                         } else {
-                            Err(outgoing)
+                            Err(successors)
                         }
                     })
                     |> Option.getWithDefault(Ok(List.empty()));
                 match result {
                     case Ok(found) => found
-                    case Err(outgoing) => {
-                        let successors = outgoing |> List.flatMap(edge -> match edge {
-                            case Edge.Decl(_) => Nil
-                            case Edge.Lex(parent) => parent :: Nil
-                            case Edge.Use(usage) => if (uses) {
-                                // TODO: probably shouldn't recompute this
-                                graph
-                                    |> findDecls(usage, false)
-                                    |> List.filterMap(Decl.associatedScope)
-                            } else {
-                                Nil
-                            }
-                        });
+                    case Err(successors) => {
                         foreach(node <- successors) {
                             if (not (node `MutSet.memberOf` explored)) {
                                 queue |> MutList.push(node);
