@@ -1,4 +1,5 @@
 mod SG.Phase.Scoper {
+    use SG.Ast.ScopeGraph.AstNode.Decls
     use CurrentScope.currentScope
     use CurrentScope.enterFreshScope
     use CurrentScope.exitScope
@@ -153,14 +154,34 @@ mod SG.Phase.Scoper {
             scope = decls,
             loc
         } = coerce(module);
-        declareInFreshScope(Kind.Module, Decl.Module, coerce(name)#name, scope -> handle -> Module.Module({
-            ac = ac,
-            qualifiers = coerce(name)#qualifiers |> List.map(Handle.Handle(Kind.Module)),
-            handle = handle,
-            introduces = scope,
-            decls = visitDecls(decls),
-            loc = loc
-        }))
+        match coerce(name)#qualifiers |> List.head {
+            case Some(q) => declareInFreshScope(Kind.Module, Decl.Module, q, scope -> handle -> Module.Module({
+                ac = ac,
+                handle = handle,
+                introduces = scope,
+                decls = Decls.Decls({
+                    uses = List.empty(),
+                    modules = visitModule(ParsedAst.Module.Module({
+                        ac = ac,
+                        name = mkName(coerce(name)#qualifiers |> List.drop(1), coerce(name)#name),
+                        scope = decls,
+                        loc = loc
+                    })) :: Nil,
+                    aliases = List.empty(),
+                    enums = List.empty(),
+                    defs = List.empty(),
+                    loc = loc
+                }),
+                loc = loc
+            }))
+            case None => declareInFreshScope(Kind.Module, Decl.Module, coerce(name)#name, scope -> handle -> Module.Module({
+                ac = ac,
+                handle = handle,
+                introduces = scope,
+                decls = visitDecls(decls),
+                loc = loc
+            }))
+        }
 
     def visitAlias(aliass: ParsedAst.TypeAlias): ScopeGraph.TypeAlias \ CurrentScope + MarkDecl =
         let {
@@ -305,20 +326,21 @@ mod SG.Phase.Scoper {
             case ParsedAst.Exp.Bool(b, loc) => ScopeGraph.Exp.Bool(b, loc)
         }
 
-    def visitName(_kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ CurrentScope =
+    def visitName(kind: Kind, name: ParsedAst.Name): ScopeGraph.Refr \ CurrentScope =
         let { qualifiers, name = id, loc = _ } = coerce(name);
         let scope = currentScope();
-        let (unqualified, qualified) = newtonBall(qualifiers, id);
-        (Refr.Unqualified(Kind.Any, unqualified, scope), qualified) ||> List.foldLeft(Refr.Qualified(Kind.Any))
-
-    def newtonBall(xs: List[t], x: t): (t, List[t]) =
-        match List.head(xs) {
-            case None => (x, Nil)
-            case Some(first) => {
-                let last = xs |> List.drop(1);
-                (first, last ++ (x :: Nil))
+        match split1(qualifiers) {
+            case Some((unqualified, qualified)) => {
+                let qualRef = (Refr.Unqualified(Kind.Any, unqualified, scope), qualified) ||> List.foldLeft(Refr.Qualified(Kind.Any));
+                Refr.Qualified(kind, qualRef, id)
             }
+            case None => Refr.Unqualified(kind, id, scope)
         }
+
+    def split1(xs: List[t]): Option[(t, List[t])] =
+        xs
+            |> List.head
+            |> Option.map(x -> (x, xs |> List.drop(1)))
 
     def declareInFreshScope(kind: Kind, cons: t -> Decl, loc: LocString, mkDecl: Scope -> Handle -> t \ ef): t \ ef + CurrentScope + MarkDecl =
         let freshScope = enterFreshScope();

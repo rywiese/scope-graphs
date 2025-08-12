@@ -38,13 +38,16 @@ mod SG.Ast.ScopeGraph {
             |> List.head
             |> Option.map(Decl.handle)
 
+    // `uses` true whether to include `Use` edges while BFSing.
+    // this is a temporary hack until regex support is in place.
     pub def findDecls(src: Refr, uses: Bool, graph: ScopeGraph): List[Decl] =
         match src {
             case Refr.Qualified(_, qualifier, _) => graph
                 |> findDecls(qualifier, uses)
-                |> List.flatMap(Decl.associatedScope
-                    >> Option.map(node -> graph |> bfs(node, src, uses))
-                    >> Option.getWithDefault(List.empty())
+                |> List.flatMap(decl -> decl
+                    |> Decl.associatedScope
+                    |> Option.map(node -> graph |> bfs(node, src, uses))
+                    |> Option.getWithDefault(Nil)
                 )
                 // TODO: filter out long paths (multiple nodes will have different bfs results)
                 // TODO: the below is maybe too aggressive a filtering
@@ -54,6 +57,8 @@ mod SG.Ast.ScopeGraph {
         }
 
     // All paths of length n where n is the shortest path
+    // `uses` true whether to include `Use` edges while BFSing.
+    // this is a temporary hack until regex support is in place.
     def bfs(src: Scope, refr: Refr, uses: Bool, graph: ScopeGraph): List[Decl] =
         region rc {
             let queue = MutList.empty(rc) !> MutList.push(src);
@@ -65,14 +70,21 @@ mod SG.Ast.ScopeGraph {
                         let outgoing = graph
                             |> outgoingEdges(node)
                             |> List.sortBy(Edge.edgeType);
-                        let matches = outgoing |> List.filterMap(edge -> match edge {
+                        let matches = outgoing |> List.flatMap(edge -> match edge {
                             case Edge.Decl(decl) => if (refr `matches` decl |> Decl.handle) {
-                                Some(decl)
+                                decl :: Nil
                             } else {
-                                None
+                                Nil
                             }
-                            case Edge.Lex(_) => None
-                            case Edge.Use(_) => None
+                            case Edge.Lex(_) => Nil
+                            case Edge.Use(usage) => if (uses) {
+                                // TODO: probably shouldn't recompute this
+                                graph
+                                    |> findDecls(usage, false)
+                                    |> List.filter(decl -> refr `matches` decl |> Decl.handle)
+                            } else {
+                                Nil
+                            }
                         });
                         if (not (matches |> List.isEmpty)) {
                             Ok(matches)
@@ -88,6 +100,7 @@ mod SG.Ast.ScopeGraph {
                             case Edge.Decl(_) => Nil
                             case Edge.Lex(parent) => parent :: Nil
                             case Edge.Use(usage) => if (uses) {
+                                // TODO: probably shouldn't recompute this
                                 graph
                                     |> findDecls(usage, false)
                                     |> List.filterMap(Decl.associatedScope)

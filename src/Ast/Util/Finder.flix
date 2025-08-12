@@ -66,7 +66,6 @@ mod SG.Ast.Util.Finder {
             visitor(AstNode.Module(module));
             let {
                 ac = _,
-                qualifiers = _,
                 handle = _, // TODO: return handle node?
                 introduces = _,
                 decls,

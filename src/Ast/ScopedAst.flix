@@ -38,7 +38,7 @@ mod SG.Ast.ScopeGraph {
 
     pub enum Module({
         ac = Access,
-        qualifiers = List[Handle],
+        // qualifiers = List[Handle],
         handle = Handle,
         introduces = Scope,
         decls = Decls,
@@ -209,6 +209,7 @@ mod SG.Ast.ScopeGraph {
                 case Decl.Rename(handle) => handle
             }
 
+        // Only returns "global" scopes, ie those that can be imported
         pub def associatedScope(decl: Decl): Option[Scope] =
             match decl {
                 case Module(module) => Some(coerce(module)#introduces)
@@ -220,7 +221,7 @@ mod SG.Ast.ScopeGraph {
 
     pub enum Edge {
         case Lex(Scope)
-        case Use(Refr) // Conceptually, this is a Decl, but making it a Refr allows us to find the target Decl of the edge during resolution, rather than construction
+        case Use(Refr)
         case Decl(Decl)
     }
 
@@ -290,7 +291,7 @@ mod SG.Ast.ScopeGraph {
     instance Coerce[Module] {
         type Out = {
             ac = Access,
-            qualifiers = List[Handle],
+            // qualifiers = List[Handle],
             handle = Handle,
             introduces = Scope,
             decls = Decls,
@@ -299,7 +300,7 @@ mod SG.Ast.ScopeGraph {
     
         pub def coerce(x: Module): {
             ac = Access,
-            qualifiers = List[Handle],
+            // qualifiers = List[Handle],
             handle = Handle,
             introduces = Scope,
             decls = Decls,
