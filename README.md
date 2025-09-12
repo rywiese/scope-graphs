@@ -1,5 +1,7 @@
 # scope-graphs
 
+For more details and some pictures, take a look at [the report](report.pdf) I put together.
+
 A scope graph is an approach for name resolution in a compiler front-end.
 With this approach, the parsed AST is extended with
 1. nodes representing scopes
