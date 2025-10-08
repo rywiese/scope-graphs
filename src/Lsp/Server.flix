@@ -121,7 +121,7 @@ mod SG.Lsp.Server {
                 System.err.println("didSave");
                 s |> updateUri(params.getTextDocument().getUri())
             }
-            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + Net + r = {
+            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + r = {
                 System.err.println("documentHighlight");
                 s |> addUriIfNotPresent(params.getTextDocument().getUri());
                 let highlights = match s->manager |> Manager.check {
