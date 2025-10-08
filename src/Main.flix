@@ -1,6 +1,6 @@
 use SG.Manager
 
-def main(): Unit \ IO + Sys = {
+def main(): Unit \ IO = {
     let res = run mainAux() with Environment.runWithIO with FileRead.runWithIO;
     match res {
         case Result.Ok(()) => ()

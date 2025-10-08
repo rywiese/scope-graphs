@@ -106,22 +106,22 @@ mod SG.Lsp.Server {
 
     def mkTextDocumentService(s: Server[r]): TextDocumentService \ IO = {
         new TextDocumentService {
-            def didOpen(_this: TextDocumentService, params: DidOpenTextDocumentParams): Unit \ IO + Net + r = {
+            def didOpen(_this: TextDocumentService, params: DidOpenTextDocumentParams): Unit \ IO + r = {
                 System.err.println("didOpen");
                 s |> addUriIfNotPresent(params.getTextDocument().getUri())
             }
             def didClose(_this: TextDocumentService, _params: DidCloseTextDocumentParams): Unit \ IO = {
                 System.err.println("didClose")
             }
-            def didChange(_this: TextDocumentService, params: DidChangeTextDocumentParams): Unit \ IO + Net + r = {
+            def didChange(_this: TextDocumentService, params: DidChangeTextDocumentParams): Unit \ IO + r = {
                 System.err.println("didChange");
                 s |> updateUri(params.getTextDocument().getUri())
             }
-            def didSave(_this: TextDocumentService, params: DidSaveTextDocumentParams): Unit \ IO + Net + r = {
+            def didSave(_this: TextDocumentService, params: DidSaveTextDocumentParams): Unit \ IO + r = {
                 System.err.println("didSave");
                 s |> updateUri(params.getTextDocument().getUri())
             }
-            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + Net + r = {
+            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + r = {
                 System.err.println("documentHighlight");
                 s |> addUriIfNotPresent(params.getTextDocument().getUri());
                 let highlights = match s->manager |> Manager.check {
@@ -144,7 +144,7 @@ mod SG.Lsp.Server {
                     toArrayList;
                 CompletableFuture.completedFuture(list)
             }
-            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + Net + r = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + r = {
                 System.err.println("definition");
                 let uri = params.getTextDocument().getUri();
                 s |> addUriIfNotPresent(params.getTextDocument().getUri());
@@ -172,11 +172,11 @@ mod SG.Lsp.Server {
         }
     }
 
-    def addUriIfNotPresent(uri: String, s: Server[r]): Unit \ r + IO + Net = {
+    def addUriIfNotPresent(uri: String, s: Server[r]): Unit \ r + IO = {
         addFileIfNotPresent(pathFromUri(uri), s)
     }
 
-    def updateUri(uri: String, s: Server[r]): Unit \ r + IO + Net = {
+    def updateUri(uri: String, s: Server[r]): Unit \ r + IO = {
         updateFile(pathFromUri(uri), s)
     }
 
@@ -198,7 +198,7 @@ mod SG.Lsp.Server {
         }
     }
 
-    def pathFromUri(uri: String): String \ IO + Net = {
+    def pathFromUri(uri: String): String \ IO  = {
         Paths.get(new URI(uri)).toString()
     }
 
