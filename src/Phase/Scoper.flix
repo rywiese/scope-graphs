@@ -55,7 +55,7 @@ mod SG.Phase.Scoper {
             let freshScopeCount = Ref.fresh(rc, 0);
             let scopes = MutList.empty(rc);
             let edges = MutMap.empty(rc);
-            def currentScope = {
+            def currentScope() = {
                 scopes
                     |> MutList.last
                     |> Option.getWithDefault(Scope.top())
