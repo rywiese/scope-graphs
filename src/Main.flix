@@ -1,15 +1,15 @@
 use SG.Manager
 
 def main(): Unit \ IO = {
-    let res = run mainAux() with Environment.runWithIO with FileRead.runWithIO;
+    let res = run mainAux() with Env.runWithIO with FileRead.runWithIO;
     match res {
         case Result.Ok(()) => ()
         case Result.Err(err) => bug!(err |> ToString.toString)
     }
 }
 
-def mainAux(): Unit \ IO + FileRead + Environment = region rc {
-    match Environment.getArgs() {
+def mainAux(): Unit \ IO + FileRead + Env = region rc {
+    match Env.getArgs() {
         case "lsp" :: Nil =>
             SG.Lsp.runServer()
         case "run" :: path :: Nil =>
