@@ -104,7 +104,7 @@ mod SG.Phase.Scoper {
                     resume(child)
                 }
                 def exitScope(resume) = {
-                    scopes |> MutList.pop;
+                    discard MutList.pop(scopes);
                     resume(())
                 }
             }
