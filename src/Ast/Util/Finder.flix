@@ -215,7 +215,7 @@ mod SG.Ast.Util.Finder {
     }
 
     def ifContained(f: Unit -> Option[t] \ ef, loc: Loc, thing: thing): Option[t] \ ef with Located[thing] = {
-        if (contains(loc, thing)) checked_ecast(unsafely IO run {
+        if (contains(loc, thing)) checked_ecast(unsafe IO {
             System.err.println(thing |> getLoc |> ToString.toString);
             f()
         }) else None
