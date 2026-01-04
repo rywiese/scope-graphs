@@ -1,4 +1,6 @@
 mod SG.Test.Examples {
+    use Assert.assertTrue
+
     use SG.Ast.Shared.Location.mkLoc
     use SG.Ast.Shared.Location.Source
     use SG.Ast.Shared.Location.Located
@@ -8,16 +10,16 @@ mod SG.Test.Examples {
     use SG.Ast.Util.Finder
 
     @Test
-    pub def misc(): Bool \ IO = checkOneFile("./examples/misc.flixsg")
+    pub def misc(): Unit \ Assert + IO = assertTrue(checkOneFile("./examples/misc.flixsg"))
 
     @Test
-    pub def paper1(): Bool \ IO = checkOneFile("./examples/paper1.flixsg")
+    pub def paper1(): Unit \ Assert + IO = assertTrue(checkOneFile("./examples/paper1.flixsg"))
 
     @Test
-    pub def list(): Bool \ IO = checkOneFile("./examples/list.flixsg")
+    pub def list(): Unit \ Assert + IO = assertTrue(checkOneFile("./examples/list.flixsg"))
 
     @Test
-    pub def usage(): Bool \ IO = checkOneFile("./examples/usage.flixsg")
+    pub def usage(): Unit \ Assert + IO = assertTrue(checkOneFile("./examples/usage.flixsg"))
 
     def checkOneFile(path: String): Bool \ IO = run region rc {
         let man = Manager.empty(rc);
