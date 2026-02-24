@@ -216,16 +216,16 @@ mod SG.Lsp.Server {
     }
 
     def toObject(x: t): JObject = {
-        typematch x {
-            case y: Bool => checked_cast(Boolean.valueOf(y))
-            case y: Char => checked_cast(Character.valueOf(y))
-            case y: Int8 => checked_cast(Byte.valueOf(y))
-            case y: Int16 => checked_cast(Short.valueOf(y))
-            case y: Int32 => checked_cast(Integer.valueOf(y))
-            case y: Int64 => checked_cast(Long.valueOf(y))
-            case y: Float32 => checked_cast(Float.valueOf(y))
-            case y: Float64 => checked_cast(Double.valueOf(y))
-            case _: _ => unchecked_cast(x as JObject)
+        match Reflect.reflectValue(x) {
+            case Reflect.JvmValue.JvmBool(y) => checked_cast(Boolean.valueOf(y))
+            case Reflect.JvmValue.JvmChar(y) => checked_cast(Character.valueOf(y))
+            case Reflect.JvmValue.JvmInt8(y) => checked_cast(Byte.valueOf(y))
+            case Reflect.JvmValue.JvmInt16(y) => checked_cast(Short.valueOf(y))
+            case Reflect.JvmValue.JvmInt32(y) => checked_cast(Integer.valueOf(y))
+            case Reflect.JvmValue.JvmInt64(y) => checked_cast(Long.valueOf(y))
+            case Reflect.JvmValue.JvmFloat32(y) => checked_cast(Float.valueOf(y))
+            case Reflect.JvmValue.JvmFloat64(y) => checked_cast(Double.valueOf(y))
+            case Reflect.JvmValue.JvmObject(y) => y
         }
     }
 
