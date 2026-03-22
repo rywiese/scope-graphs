@@ -35,13 +35,15 @@ mod SG.Manager {
         m->cachedCompilation = None
     }
 
-    pub def updateFile(path: String, m: Manager[r]): Unit \ r + FileRead = {
-        updateSource(Source.File(path), FileRead.read(path), m)
+    pub def updateFile(path: String, m: Manager[r]): Result[IoError, Unit] \ r + Fs.FileRead = {
+        forM (content <- Fs.FileRead.read(path))
+        yield updateSource(Source.File(path), content, m)
     }
 
-    pub def addFileIfNotPresent(path: String, m: Manager[r]): Unit \ r + FileRead = {
-        if (m->files |> MutMap.memberOf(Source.File(path))) ()
-        else updateSource(Source.File(path), FileRead.read(path), m)
+    pub def addFileIfNotPresent(path: String, m: Manager[r]): Result[IoError, Unit] \ r + Fs.FileRead = {
+        if (m->files |> MutMap.memberOf(Source.File(path))) Result.Ok(())
+        else forM (content <- Fs.FileRead.read(path))
+             yield updateSource(Source.File(path), content, m)
     }
 
     pub def check(m: Manager[r]): Validation[Error, CheckResult] \ r = {

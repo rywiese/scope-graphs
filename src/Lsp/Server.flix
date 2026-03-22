@@ -182,7 +182,7 @@ mod SG.Lsp.Server {
 
     def addFileIfNotPresent(path: String, s: Server[r]): Unit \ r + IO = {
         logDev("Manager", "${path} is detected");
-        let res = run s->manager |> Manager.addFileIfNotPresent(path) with FileRead.runWithIO;
+        let res = run s->manager |> Manager.addFileIfNotPresent(path) with Fs.FileRead.runWithIO;
         match res {
             case Result.Ok(()) => ()
             case Result.Err(err) => s |> showError(ToString.toString(err))
@@ -191,7 +191,7 @@ mod SG.Lsp.Server {
 
     def updateFile(path: String, s: Server[r]): Unit \ r + IO = {
         logDev("Manager", "${path} is changed");
-        let res = run s->manager |> Manager.updateFile(path) with FileRead.runWithIO;
+        let res = run s->manager |> Manager.updateFile(path) with Fs.FileRead.runWithIO;
         match res {
             case Result.Ok(()) => ()
             case Result.Err(err) => s |> showError(ToString.toString(err))

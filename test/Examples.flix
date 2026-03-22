@@ -23,25 +23,22 @@ mod SG.Test.Examples {
 
     def checkOneFile(path: String): Bool \ IO = run region rc {
         let man = Manager.empty(rc);
-        man |> Manager.addFileIfNotPresent(path);
-        match man |> Manager.check {
-            case Validation.Success(_) =>
-                // let {parsedAst = _parsedAst, scopeGraph = scopeGraph} = coerce(cr);
-                // println(scopeGraph |> ScopeGraph.refs);
-                true
-            case Validation.Failure(errs) =>
-                foreach (err <- errs) println(err);
-                false
-        }
-    } with runFileRead
-
-    def runFileRead(f: Unit -> Bool \ ef): Bool \ ef - FileRead + IO = {
-        match (run f() with FileRead.runWithIO) {
-            case Result.Ok(b) => b
+        match man |> Manager.addFileIfNotPresent(path) {
             case Result.Err(err) =>
                 println(err);
                 false
+            case Result.Ok(()) =>
+                match man |> Manager.check {
+                    case Validation.Success(_) => true
+                    case Validation.Failure(errs) =>
+                        foreach (err <- errs) println(err);
+                        false
+                }
         }
+    } with runFileRead
+
+    def runFileRead(f: Unit -> Bool \ ef): Bool \ ef - Fs.FileRead + IO = {
+        run f() with Fs.FileRead.runWithIO
     }
 
 }
