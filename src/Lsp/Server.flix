@@ -72,9 +72,9 @@ mod SG.Lsp.Server {
         let textDocumentService = mkTextDocumentService(server);
         let workspaceService = mkWorkspaceService(server);
         let jServer = new LanguageServer {
-            def initialize(_this: LanguageServer, _params: InitializeParams): CompletableFuture \ IO = {
-                CompletableFuture.supplyAsync(new Supplier {
-                    def get(_this: Supplier): JObject \ IO =
+            def initialize(_this: LanguageServer, _params: InitializeParams): CompletableFuture[JObject] \ IO = {
+                CompletableFuture.supplyAsync(new Supplier[JObject] {
+                    def get(_this: Supplier[JObject]): JObject \ IO =
                         let sc = new ServerCapabilities();
                         let bTrue = Boolean.valueOf(true);
                         sc.setDefinitionProvider(bTrue);
@@ -94,7 +94,7 @@ mod SG.Lsp.Server {
             def getWorkspaceService(_this: LanguageServer): WorkspaceService = {
                 workspaceService
             }
-            def shutdown(_this: LanguageServer): CompletableFuture \ IO = {
+            def shutdown(_this: LanguageServer): CompletableFuture[JObject] \ IO = {
                 CompletableFuture.completedFuture(null)
             }
         };
@@ -121,7 +121,7 @@ mod SG.Lsp.Server {
                 System.err.println("didSave");
                 s |> updateUri(params.getTextDocument().getUri())
             }
-            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture \ IO + r = {
+            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture[JObject] \ IO + r = {
                 System.err.println("documentHighlight");
                 s |> addUriIfNotPresent(params.getTextDocument().getUri());
                 let highlights = match s->manager |> Manager.check {
@@ -144,7 +144,7 @@ mod SG.Lsp.Server {
                     toArrayList;
                 CompletableFuture.completedFuture(list)
             }
-            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture \ IO + r = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture[JObject] \ IO + r = {
                 System.err.println("definition");
                 let uri = params.getTextDocument().getUri();
                 s |> addUriIfNotPresent(params.getTextDocument().getUri());
@@ -230,8 +230,8 @@ mod SG.Lsp.Server {
     }
 
     /// Boxes primitives
-    def toArrayList(l: List[t]): ArrayList \ IO = {
-        let list = new ArrayList();
+    def toArrayList(l: List[t]): ArrayList[JObject] \ IO = {
+        let list: ArrayList[JObject] = new ArrayList();
         foreach(x <- l) discard list.add(toObject(x));
         list
     }
