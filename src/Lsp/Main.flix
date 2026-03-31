@@ -12,7 +12,7 @@ mod SG.Lsp {
             System.in,
             System.out
         );
-        let client = unchecked_cast(launcher.getRemoteProxy() as LanguageClient);
+        let client = launcher.getRemoteProxy();
         server#connect(client);
         launcher.startListening().get();
         System.err.println("Stopped SG LSP server")
