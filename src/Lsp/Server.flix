@@ -96,7 +96,8 @@ mod SG.Lsp.Server {
                 workspaceService
             }
             def shutdown(_this: LanguageServer): CompletableFuture[JObject] \ IO = {
-                CompletableFuture.completedFuture(unchecked_cast(null as JObject))
+                let n: JObject = checked_cast(null);
+                CompletableFuture.completedFuture(n)
             }
         };
         {
@@ -143,7 +144,8 @@ mod SG.Lsp.Server {
                 let list = highlights |>
                     map(loc -> new DocumentHighlight(loc |> locToJLoc, DocumentHighlightKind.Text)) |>
                     toArrayList;
-                CompletableFuture.completedFuture(unchecked_cast(list as JList[JObject]))
+                let l: JList[JObject] = checked_cast(list);
+                CompletableFuture.completedFuture(l)
             }
             def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture[JEither[JList[JObject], JList[JObject]]] \ IO + r = {
                 System.err.println("definition");
@@ -166,7 +168,7 @@ mod SG.Lsp.Server {
                 let list = highlights |>
                     map(loc -> new JLocation(uri, loc |> locToJLoc)) |>
                     toArrayList;
-                let either: JEither[JList[JObject], JList[JObject]] = unchecked_cast(JEither.forLeft(list) as JEither[JList[JObject], JList[JObject]]);
+                let either: JEither[JList[JObject], JList[JObject]] = checked_cast(JEither.forLeft(list));
                 CompletableFuture.completedFuture(either)
             }
         }
