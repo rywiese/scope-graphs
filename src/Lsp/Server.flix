@@ -254,8 +254,7 @@ mod SG.Lsp.Server {
             }
             def didChangeWatchedFiles(_this: WorkspaceService, params: DidChangeWatchedFilesParams): Unit \ IO = {
                 System.err.println("didChangeWatchedFiles");
-                params.getChanges().iterator().forEachRemaining(((obj: JObject) -> {
-                    let event = unchecked_cast(obj as FileEvent);
+                params.getChanges().iterator().forEachRemaining(((event: FileEvent) -> {
                     s |> updateUri(event.getUri())
                 }))
             }
