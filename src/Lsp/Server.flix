@@ -34,6 +34,7 @@ mod SG.Lsp.Server {
     import java.net.URI
     import java.nio.file.Paths
     import java.util.ArrayList
+    import java.util.{List => JList}
     import java.util.concurrent.CompletableFuture
     import java.util.function.Supplier
     import java.util.function.Consumer
@@ -72,17 +73,17 @@ mod SG.Lsp.Server {
         let textDocumentService = mkTextDocumentService(server);
         let workspaceService = mkWorkspaceService(server);
         let jServer = new LanguageServer {
-            def initialize(_this: LanguageServer, _params: InitializeParams): CompletableFuture[JObject] \ IO = {
-                CompletableFuture.supplyAsync(new Supplier[JObject] {
-                    def get(_this: Supplier[JObject]): JObject \ IO =
+            def initialize(_this: LanguageServer, _params: InitializeParams): CompletableFuture[InitializeResult] \ IO = {
+                CompletableFuture.supplyAsync(new Supplier[InitializeResult] {
+                    def get(_this: Supplier[InitializeResult]): InitializeResult \ IO =
                         let sc = new ServerCapabilities();
                         let bTrue = Boolean.valueOf(true);
                         sc.setDefinitionProvider(bTrue);
                         sc.setDocumentHighlightProvider(bTrue);
-                        checked_cast(new InitializeResult(
+                        new InitializeResult(
                             sc,
                             new ServerInfo("flixsg", "0.0.1")
-                        ))
+                        )
                 })
             }
             def exit(_this: LanguageServer): Unit = {
@@ -95,7 +96,7 @@ mod SG.Lsp.Server {
                 workspaceService
             }
             def shutdown(_this: LanguageServer): CompletableFuture[JObject] \ IO = {
-                CompletableFuture.completedFuture(null)
+                CompletableFuture.completedFuture(unchecked_cast(null as JObject))
             }
         };
         {
@@ -121,7 +122,7 @@ mod SG.Lsp.Server {
                 System.err.println("didSave");
                 s |> updateUri(params.getTextDocument().getUri())
             }
-            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture[JObject] \ IO + r = {
+            def documentHighlight(_this: TextDocumentService, params: DocumentHighlightParams): CompletableFuture[JList[JObject]] \ IO + r = {
                 System.err.println("documentHighlight");
                 s |> addUriIfNotPresent(params.getTextDocument().getUri());
                 let highlights = match s->manager |> Manager.check {
@@ -142,9 +143,9 @@ mod SG.Lsp.Server {
                 let list = highlights |>
                     map(loc -> new DocumentHighlight(loc |> locToJLoc, DocumentHighlightKind.Text)) |>
                     toArrayList;
-                CompletableFuture.completedFuture(list)
+                CompletableFuture.completedFuture(unchecked_cast(list as JList[JObject]))
             }
-            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture[JObject] \ IO + r = {
+            def definition(_this: TextDocumentService, params: DefinitionParams): CompletableFuture[JEither[JList[JObject], JList[JObject]]] \ IO + r = {
                 System.err.println("definition");
                 let uri = params.getTextDocument().getUri();
                 s |> addUriIfNotPresent(params.getTextDocument().getUri());
@@ -163,11 +164,10 @@ mod SG.Lsp.Server {
                         }
                 };
                 let list = highlights |>
-                    map(loc -> {
-                        JEither.forLeft(new JLocation(uri, loc |> locToJLoc))
-                    }) |>
+                    map(loc -> new JLocation(uri, loc |> locToJLoc)) |>
                     toArrayList;
-                CompletableFuture.completedFuture(list)
+                let either: JEither[JList[JObject], JList[JObject]] = unchecked_cast(JEither.forLeft(list) as JEither[JList[JObject], JList[JObject]]);
+                CompletableFuture.completedFuture(either)
             }
         }
     }
