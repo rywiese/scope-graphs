@@ -1,5 +1,14 @@
-mod SG.Ast {
+mod SG.Ast.CheckResult {
+    use Functor.map
+    use SG.Ast.ParsedAst
     use SG.Ast.ScopeGraph
+    use SG.Ast.ScopeGraph.AstNode
+    use SG.Ast.ScopeGraph.Decl
+    use SG.Ast.Shared.Location
+    use SG.Ast.Shared.Location.Loc
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Util.Finder
 
     pub enum CheckResult({
         scopeGraph = ScopeGraph
@@ -13,19 +22,6 @@ mod SG.Ast {
             r
         }
     }
-}
-
-mod SG.Ast.CheckResult {
-    use Functor.map
-    use SG.Ast.ParsedAst
-    use SG.Ast.ScopeGraph
-    use SG.Ast.ScopeGraph.AstNode
-    use SG.Ast.ScopeGraph.Decl
-    use SG.Ast.Shared.Location
-    use SG.Ast.Shared.Location.Loc
-    use SG.Ast.Shared.Location.Located
-    use SG.Ast.Shared.Location.LocRange
-    use SG.Ast.Util.Finder
 
     pub def mk(scopeGraph: ScopeGraph): CheckResult =
         CheckResult({ scopeGraph = scopeGraph })

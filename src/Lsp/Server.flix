@@ -1,16 +1,4 @@
-mod SG.Lsp {
-    use SG.Manager
-    import org.eclipse.lsp4j.services.LanguageClient
-    import org.eclipse.lsp4j.services.LanguageServer
-
-    struct Server[r] {
-        mut client: Option[LanguageClient],
-        manager: Manager[r]
-    }
-}
-
 mod SG.Lsp.Server {
-    import org.eclipse.lsp4j.FileEvent
     use SG.Ast.Shared.Location.Source
     use SG.Ast.CheckResult
     use SG.Ast.Shared.Location
@@ -18,7 +6,6 @@ mod SG.Lsp.Server {
     use SG.Ast.Shared.Location.Located
     use SG.Ast.Shared.Location.LocRange
     use SG.Manager
-
     use Functor.map
 
     import java.lang.{Object => JObject}
@@ -38,6 +25,7 @@ mod SG.Lsp.Server {
     import java.util.concurrent.CompletableFuture
     import java.util.function.Supplier
     import java.util.function.Consumer
+    import org.eclipse.lsp4j.FileEvent
     import org.eclipse.lsp4j.{Location => JLocation}
     import org.eclipse.lsp4j.{Position => JPosition}
     import org.eclipse.lsp4j.{Range => JRange}
@@ -64,6 +52,11 @@ mod SG.Lsp.Server {
     import org.eclipse.lsp4j.services.LanguageServer
     import org.eclipse.lsp4j.services.TextDocumentService
     import org.eclipse.lsp4j.services.WorkspaceService
+
+    struct Server[r] {
+        mut client: Option[LanguageClient],
+        manager: Manager[r]
+    }
 
     pub def mkServer(rc: Region[r]): {server = LanguageServer, connect = LanguageClient -> Unit \ r} \ r + IO = {
         let server = new Server @ rc {

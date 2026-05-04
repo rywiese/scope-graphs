@@ -1,4 +1,4 @@
-mod SG.Util {
+mod SG.Util.StringCursor {
 
 /// Iterate through a string while maintaining the line and column index of the
 /// cursor.
@@ -25,8 +25,6 @@ pub struct StringCursor[r] {
     rc: Region[r]
 
 }
-
-mod StringCursor {
 
     /// Returns the current line index (zero-indexed).
     pub def getLine(sc: StringCursor[r]): Int32 \ r =
@@ -248,5 +246,4 @@ mod StringCursor {
       };
       scNew
     }
-}
 }
