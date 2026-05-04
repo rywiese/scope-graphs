@@ -31,19 +31,3 @@ def mainAux(): Unit \ IO + Fs.FileRead + Env = region rc {
     }
 }
 
-mod SG {
-    use Functor.map
-    use SG.Ast.Shared.Location.Source
-    use SG.Ast
-    use SG.Ast.ParsedAst
-    use SG.Ast.CheckResult
-    use SG.Ast.Shared.Crash
-    use SG.Ast.Shared.Error
-    use SG.Phase.Lexer
-    use SG.Phase.Parser
-    use SG.Phase.Scoper
-    use SG.Phase.Sanitizer
-    use SG.Util.StringCursor
-    use SG.Util.VectorCursor
-
-}

@@ -1,14 +1,7 @@
-mod SG.Ast {
+mod SG.Ast.Lexed {
     use SG.Ast.Shared.Location.Source
-    use Lexed.Token
-
-    pub type alias Lexed = {
-        m = Map[Source, Vector[Token]]
-    }
-
-    mod Lexed {
-        use SG.Ast.Shared.Location.Located
-        use SG.Ast.Shared.Location.LocRange
+    use SG.Ast.Shared.Location.Located
+    use SG.Ast.Shared.Location.LocRange
 
         pub enum Token {
             case Int(Int32, LocRange)
@@ -151,4 +144,4 @@ mod SG.Ast {
 
     }
 
-}
+

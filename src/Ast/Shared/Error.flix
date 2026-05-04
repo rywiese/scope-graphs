@@ -1,6 +1,6 @@
-mod SG.Ast.Shared {
-    use Location.LocRange
-    use Location.Loc
+mod SG.Ast.Shared.Error {
+    use SG.Ast.Shared.Location.Loc
+    use SG.Ast.Shared.Location.LocRange
 
     pub enum Error({
         category = String,
@@ -8,35 +8,29 @@ mod SG.Ast.Shared {
         loc = Option[LocRange]
     })
 
-    mod Error {
-        use SG.Ast.Shared.Location.Loc
-        use SG.Ast.Shared.Location.LocRange
+    pub def mkError(category: {category = String}, msg: String, loc: LocRange): Error =
+        Error({category = category#category, msg = msg, loc = Some(loc)})
 
-        pub def mkError(category: {category = String}, msg: String, loc: LocRange): Error =
-            Error({category = category#category, msg = msg, loc = Some(loc)})
+    pub def mkPointError(category: {category = String}, msg: String, loc: Loc): Error =
+        Error({category = category#category, msg = msg, loc = Some(loc |> Loc.point)})
 
-        pub def mkPointError(category: {category = String}, msg: String, loc: Loc): Error =
-            Error({category = category#category, msg = msg, loc = Some(loc |> Loc.point)})
+    pub def mkUnknownError(category: {category = String}, msg: String): Error =
+        Error({category = category#category, msg = msg, loc = None})
 
-        pub def mkUnknownError(category: {category = String}, msg: String): Error =
-            Error({category = category#category, msg = msg, loc = None})
-
-        pub def toString(error: Error): String = {
-            let {category, msg, loc = locOpt} = coerce(error);
-            match locOpt {
-                case Some(loc) => "[${category}] ${msg} (${loc})"
-                case None => "[${category}] ${msg}"
-            }
+    pub def toString(error: Error): String = {
+        let {category, msg, loc = locOpt} = coerce(error);
+        match locOpt {
+            case Some(loc) => "[${category}] ${msg} (${loc})"
+            case None => "[${category}] ${msg}"
         }
+    }
 
-        pub def toStringWithFile(file: String, error: Error): String = {
-            let {category, msg, loc = locOpt} = coerce(error);
-            match locOpt {
-                case Some(loc) => "[${category}] ${msg} (${loc}; ${file})"
-                case None => "[${category}] ${msg} (${file})"
-            }
+    pub def toStringWithFile(file: String, error: Error): String = {
+        let {category, msg, loc = locOpt} = coerce(error);
+        match locOpt {
+            case Some(loc) => "[${category}] ${msg} (${loc}; ${file})"
+            case None => "[${category}] ${msg} (${file})"
         }
-
     }
 
     instance Coerce[Error] {
@@ -52,7 +46,5 @@ mod SG.Ast.Shared {
         pub def toString(x: Error): String =
             Error.toString(x)
     }
-
-
 
 }

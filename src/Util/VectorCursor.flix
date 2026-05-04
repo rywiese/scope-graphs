@@ -1,13 +1,11 @@
-mod SG.Util {
+mod SG.Util.VectorCursor {
+    use Vector.length
 
     pub struct VectorCursor[t: Type, r: Region] {
         v: Vector[t],
         // Must always be non-negative.
         mut index: Int32
     }
-
-    mod VectorCursor {
-        use Vector.length
 
         pub def mk(rc: Region[r], v: Vector[t]): VectorCursor[t, r] \ r =
             new VectorCursor @ rc {
@@ -70,7 +68,5 @@ mod SG.Util {
                 case None => vc->v |> Vector.nth(vc->index - 1)
             }
         }
-
-    }
 
 }

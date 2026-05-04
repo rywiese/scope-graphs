@@ -1,15 +1,3 @@
-mod SG {
-    use SG.Ast.CheckResult
-    use SG.Ast.Shared.Error
-    use SG.Ast.Shared.Location.Source
-
-    pub struct Manager[r] {
-        files: MutMap[Source, String, r],
-        mut cachedCompilation: Option[Validation[Error, CheckResult]],
-        rc: Region[r]
-    }
-}
-
 mod SG.Manager {
     use SG.Ast.CheckResult
     use SG.Ast.Lexed
@@ -21,6 +9,12 @@ mod SG.Manager {
     use SG.Phase.Parser
     use SG.Phase.Sanitizer
     use SG.Phase.Scoper
+
+    pub struct Manager[r] {
+        files: MutMap[Source, String, r],
+        mut cachedCompilation: Option[Validation[Error, CheckResult]],
+        rc: Region[r]
+    }
 
     pub def empty(rc: Region[r]): Manager[r] \ r = {
         new Manager @ rc {

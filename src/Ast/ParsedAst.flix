@@ -1,12 +1,3 @@
-mod SG.Ast {
-    use SG.Ast.ParsedAst.Scope
-    use SG.Ast.Shared.Location.Source
-
-    pub type alias ParsedAst = {
-        m = Map[Source, Scope]
-    }
-}
-
 mod SG.Ast.ParsedAst {
     use Comparison.EqualTo
     use Order.compare
