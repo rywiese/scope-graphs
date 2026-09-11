@@ -18,18 +18,18 @@ Use [Main](src/Main.flix) to `compile` and `compileFile` to run all phases.
 See [Examples](examples/) for a view of the language. With the vsix extension installed and the language server running, you can ctrl/cmd + click on identifiers to see how they are resolved.
 
 ### Asts
-- [ParsedAst](src/Ast/ParsedAst.flix) contains the Parsed AST.
-- [ScopedAst](src/Ast/ParsedAst.flix) contains the Scoped AST, as well as the scope nodes and edges.
+- [ParsedAst](src/SG/Ast/ParsedAst.flix) contains the Parsed AST.
+- [ScopeGraph](src/SG/Ast/ScopeGraph.flix) contains the Scoped AST, as well as the scope nodes and edges.
 
 ### Phases
 - [File](src/Phase/File.flix) reads files (`String`).
-- [Lexer](src/Phase/Lexer.flix) tokenizes strings (`String -> Vector[Token]`).
-- [Parser](src/Phase/Parser.flix) parses tokens (`Vector[Token] -> ParsedAst.Scope`).
-- [Sanitizer](src/Phase/Sanitizer.flix) sanitizes the parsed output (`ParsedAst.Scope -> Unit`).
-- [Scoper](src/Phase/Scoper.flix) builds a scope graph from the parsed AST (`ParsedAst -> ScopeGraph`).
+- [Lexer](src/SG/Phase/Lexer.flix) tokenizes strings (`String -> Vector[Token]`).
+- [Parser](src/SG/Phase/Parser.flix) parses tokens (`Vector[Token] -> ParsedAst.Scope`).
+- [Sanitizer](src/SG/Phase/Sanitizer.flix) sanitizes the parsed output (`ParsedAst.Scope -> Unit`).
+- [Scoper](src/SG/Phase/Scoper.flix) builds a scope graph from the parsed AST (`ParsedAst -> ScopeGraph`).
 
 ### Graph
-- [ScopeGraph](src/Ast/ScopeGraph.flix) contains functions for resolving names by searching for paths in the graph.
+- [ScopeGraph](src/SG/Ast/ScopeGraph.flix) also contains functions for resolving names by searching for paths in the graph.
 
 ## Using the vsix extension
 ```
