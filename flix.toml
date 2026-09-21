@@ -1,9 +1,6 @@
 [package]
-name        = "scope-graphs"
-description = "test"
 version     = "0.1.0"
-flix        = "0.75.3"
-authors     = ["John Doe <john@example.com>"]
+flix        = "0.76.2"
 
 [mvn-dependencies]
 "org.eclipse.lsp4j:org.eclipse.lsp4j" = "0.24.0"
