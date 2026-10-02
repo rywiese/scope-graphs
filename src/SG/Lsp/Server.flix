@@ -53,7 +53,7 @@ pub mod SG.Lsp.Server {
     import org.eclipse.lsp4j.services.TextDocumentService
     import org.eclipse.lsp4j.services.WorkspaceService
 
-    struct Server[r] {
+    pub struct Server[r] {
         mut client: Option[LanguageClient],
         manager: Manager[r]
     }
