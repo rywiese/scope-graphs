@@ -1,5 +1,4 @@
 pub mod SG.Phase.Parser {
-    use Foldable.forEach
     use Functor.map
     use SG.Ast.Lexed
     use SG.Ast.Lexed.Token
@@ -68,43 +67,58 @@ pub mod SG.Phase.Parser {
         let aliases = MutList.empty(rc);
         let enums = MutList.empty(rc);
         let defs = MutList.empty(rc);
-        let progress = Ref.fresh(rc, true);
         def loop() = {
-            Ref.put(false, progress);
-            let (ac, acLoc) = s |> parseAccess;
-            s !> parseWsAny |> parseModule(ac, acLoc) |> forEach(m -> {
-                modules |> MutList.push(m);
-                Ref.put(true, progress)
-            });
-            s !> parseWsAny |> parseUse(ac, acLoc) |> forEach(u -> {
-                uses |> MutList.push(u);
-                Ref.put(true, progress)
-            });
-            s !> parseWsAny |> parseTypeAlias(ac, acLoc) |> forEach(ta -> {
-                aliases |> MutList.push(ta);
-                Ref.put(true, progress)
-            });
-            s !> parseWsAny |> parseEnum(ac, acLoc) |> forEach(e -> {
-                enums |> MutList.push(e);
-                Ref.put(true, progress)
-            });
-            s !> parseWsAny |> parseDef(ac, acLoc) |> forEach(d -> {
-                defs |> MutList.push(d);
-                Ref.put(true, progress)
-            });
-            if (Ref.get(progress)) loop() else ()
+            if (parseScopeItems(s, uses, modules, aliases, enums, defs)) loop() else ()
         };
         loop();
-        let endLoc = s |> latestLoc;
+        let endLoc = latestLoc(s);
         let loc = Location.union(startLoc, endLoc);
         ParsedAst.mkScope(
-            uses |> MutList.toList,
-            modules |> MutList.toList,
-            aliases |> MutList.toList,
-            enums |> MutList.toList,
-            defs |> MutList.toList,
+            MutList.toList(uses),
+            MutList.toList(modules),
+            MutList.toList(aliases),
+            MutList.toList(enums),
+            MutList.toList(defs),
             loc
         )
+    }
+
+    ///
+    /// Attempts to parse one item of each kind (module, use, type alias, enum, def)
+    /// in order, pushing anything parsed onto the corresponding list.
+    ///
+    /// Returns `true` if at least one item was parsed.
+    ///
+    def parseScopeItems(
+        s: State[r],
+        uses: MutList[ParsedAst.Use, rc],
+        modules: MutList[ParsedAst.Module, rc],
+        aliases: MutList[ParsedAst.TypeAlias, rc],
+        enums: MutList[ParsedAst.Enum, rc],
+        defs: MutList[ParsedAst.Def, rc]
+    ): Bool \ r + rc + Crash = {
+        let (ac, acLoc) = parseAccess(s);
+        parseWsAny(s);
+        let p1 = pushOpt(modules, parseModule(ac, acLoc, s));
+        parseWsAny(s);
+        let p2 = pushOpt(uses, parseUse(ac, acLoc, s));
+        parseWsAny(s);
+        let p3 = pushOpt(aliases, parseTypeAlias(ac, acLoc, s));
+        parseWsAny(s);
+        let p4 = pushOpt(enums, parseEnum(ac, acLoc, s));
+        parseWsAny(s);
+        let p5 = pushOpt(defs, parseDef(ac, acLoc, s));
+        p1 or p2 or p3 or p4 or p5
+    }
+
+    ///
+    /// Pushes the value in `x` onto `l` if present.
+    ///
+    /// Returns `true` if a value was pushed.
+    ///
+    def pushOpt(l: MutList[a, rc], x: Option[a]): Bool \ rc = match x {
+        case Some(v) => MutList.push(v, l); true
+        case None => false
     }
 
     ///
